@@ -343,17 +343,24 @@ function renderApkTable(root) {
     if (q && !a.name.toLowerCase().includes(q) && !a.pkg.toLowerCase().includes(q) && !a.id.toLowerCase().includes(q)) return false;
     return true;
   });
-  tbody.innerHTML = filtered.map(a => `<tr>
-    <td><span class="td-main">${esc(a.id)}</span></td>
-    <td><div class="td-main">${esc(a.name)}</div><div class="td-sub">${esc(a.pkg)} <span title="Package name is immutable for the APK lifetime" style="color:var(--text-03);font-size:10px;">· locked</span></div></td>
-    <td><span class="badge plain">${esc(a.cat)}</span></td>
-    <td>${a.mandatory ? '<span class="badge error">Mandatory</span>' : '<span class="badge neutral">Optional</span>'}</td>
-    <td><span class="td-sub" style="margin-top:0">${a.created}</span></td>
-    <td><div class="row-actions">
-      <button class="link-btn" onclick="Store.selectedApkId='${a.id}';showScreen('s3')">View Versions</button>
-      <button class="btn btn-sm btn-ghost" onclick="openEditApkModal('${a.id}')">Edit</button>
-    </div></td>
-  </tr>`).join("");
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px 0;color:var(--text-03);"><div style="font-size:14px;font-weight:500;color:var(--text-02);margin-bottom:4px;">No APKs match your filters</div><div style="font-size:12px;">Try a different category or search term.</div></td></tr>`;
+  } else {
+    tbody.innerHTML = filtered.map(a => `<tr style="${a.deprecated?'opacity:.55;':''}">
+      <td><span class="td-main">${esc(a.id)}</span></td>
+      <td><div class="td-main">${esc(a.name)}</div><div class="td-sub">${esc(a.pkg)} <span title="Package name is immutable for the APK lifetime" style="color:var(--text-03);font-size:10px;">🔒 locked</span></div></td>
+      <td><span class="badge plain">${esc(a.cat)}</span></td>
+      <td>${a.deprecated ? '<span class="badge error">Deprecated</span>' : (a.mandatory ? '<span class="badge error">Mandatory</span>' : '<span class="badge neutral">Optional</span>')}</td>
+      <td><span class="td-sub" style="margin-top:0">${a.created}</span></td>
+      <td><div class="row-actions">
+        <button class="link-btn" onclick="Store.selectedApkId='${a.id}';showScreen('s3')">View Versions</button>
+        <button class="btn btn-sm btn-ghost" onclick="openEditApkModal('${a.id}')" ${a.deprecated?'disabled':''}>Edit</button>
+        ${a.deprecated
+          ? `<span class="td-sub" style="margin-top:0;color:var(--error-fill);font-weight:500;">Deprecated</span>`
+          : `<button class="btn btn-sm btn-ghost" style="color:var(--error-fill)" onclick="deprecateApk('${a.id}')">Deprecate</button>`}
+      </div></td>
+    </tr>`).join("");
+  }
   if (pag) pag.innerHTML = paginationHTML(filtered.length);
 }
 function filterApkTable() { renderApkTable(); }
@@ -363,9 +370,22 @@ function exportApksCSV() {
   downloadCSV("apk-registry.csv", rows);
 }
 function deprecateApk(id) {
-  // APKs cannot be deprecated — registration is once-in-a-lifetime per spec.
-  // Use Version-level deprecation instead.
-  toast("APKs are registered once in a lifetime. Deprecate a Version instead.", "warn");
+  const a = Store.apks.find(x=>x.id===id);
+  if (!a) return;
+  if (a.deprecated) { toast(`${a.name} is already deprecated`, "info"); return; }
+  const versionCount = Store.versions.filter(v=>v.apkId===id).length;
+  confirm2("Deprecate APK",
+    `Deprecate <b>${esc(a.name)}</b>? This APK will no longer be distributed to terminals. All <b>${versionCount} active version${versionCount===1?'':'s'}</b> will be marked inactive. <b>This cannot be undone.</b><br><br>The package name <code>${esc(a.pkg)}</code> remains permanently reserved and cannot be re-registered.`,
+    () => {
+      a.deprecated = true;
+      // Cascade: every version of this APK becomes deprecated + inactive
+      Store.versions.forEach(v => {
+        if (v.apkId === id) { v.deprecated = true; v.active = false; }
+      });
+      addLog("warn", "—", a.pkg, `APK ${a.id} deprecated — ${versionCount} versions cascaded to inactive`);
+      toast(`${a.name} has been deprecated. ${versionCount} version${versionCount===1?'':'s'} deactivated.`, "warn");
+      renderApkTable();
+    }, true);
 }
 
 // ==================== REGISTER APK MODAL ====================
@@ -374,38 +394,45 @@ function openRegisterModal() {
   const body = `
     <div class="alert info" style="margin-bottom:14px;"><div class="icon">i</div><div><div class="t">One-time, lifetime registration</div><div class="d">An APK can only be registered once. The Package Name is the immutable identifier — it cannot be re-registered, deleted, or reused, even after deprecation. New releases of this app are added as Versions.</div></div></div>
     <div class="input-group"><label>App Name</label><input class="input" id="regName" placeholder="e.g. Neo Core POS" /></div>
-    <div class="input-group"><label>Package Name <span style="color:var(--text-03);font-weight:400">(unique, immutable)</span></label><input class="input" id="regPkg" placeholder="e.g. com.neo.core.pos" oninput="validateRegPkg()" /><div id="regPkgHint" style="font-size:11px;color:var(--text-03);margin-top:4px;">Lower-case reverse-DNS format. This value is permanent.</div></div>
+    <div class="input-group"><label>Package Name <span style="color:var(--text-03);font-weight:400">(unique, immutable)</span></label><input class="input" id="regPkg" placeholder="e.g. com.neo.core.pos" oninput="validateRegPkg(false)" onblur="validateRegPkg(true)" autocomplete="off" /><div id="regPkgHint" style="font-size:11px;color:var(--text-03);margin-top:4px;">Lower-case reverse-DNS format. This value is permanent.</div></div>
     <div class="input-group"><label>Category</label><select class="input" id="regCat">${cats.map(c=>`<option>${c}</option>`).join("")}</select></div>
     <div class="input-group"><label>App ID (auto-generated)</label><input class="input" value="${genId()}" disabled id="regId" /></div>
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
       <div><div style="font-size:13px;font-weight:500;color:var(--text-02)">Mark as Mandatory</div><div style="font-size:12px;color:var(--text-03)">Terminals will be forced to install latest version.</div></div>
       <label class="toggle"><input type="checkbox" id="regMandatory" /><span class="slider"></span></label>
     </div>`;
-  const foot = `<button class="btn btn-tertiary" onclick="closeAllModals()">Cancel</button><button class="btn btn-primary" onclick="submitRegisterApk()">Register APK</button>`;
+  const foot = `<button class="btn btn-tertiary" onclick="closeAllModals()">Cancel</button><button class="btn btn-primary" id="regSubmitBtn" onclick="submitRegisterApk()" disabled>Register APK</button>`;
   openModal("<h2>Register New APK</h2><p>Create a new APK entry in the Registry Service.</p>", body, foot);
-  // reset auto-gen id (preview only)
+  // Reset auto-gen id (preview only) and disable submit until valid
   Store.nextApkNum--;
 }
-function validateRegPkg() {
+function validateRegPkg(strict) {
   const input = document.getElementById("regPkg");
   const hint  = document.getElementById("regPkgHint");
+  const btn   = document.getElementById("regSubmitBtn");
   if (!input || !hint) return false;
   const pkg = input.value.trim().toLowerCase();
-  if (!pkg) { hint.textContent = "Lower-case reverse-DNS format. This value is permanent."; hint.style.color = "var(--text-03)"; return false; }
-  const dup = Store.apks.find(a => a.pkg.toLowerCase() === pkg);
-  if (dup) {
-    hint.innerHTML = `Already registered as <b>${esc(dup.id)} · ${esc(dup.name)}</b>. Package names are reserved for life.`;
+  let ok = false;
+  if (!pkg) {
+    hint.textContent = strict ? "Package Name is required." : "Lower-case reverse-DNS format. This value is permanent.";
+    hint.style.color = strict ? "var(--error-fill)" : "var(--text-03)";
+    input.style.borderColor = strict ? "var(--error-fill)" : "";
+  } else if (Store.apks.find(a => a.pkg.toLowerCase() === pkg)) {
+    hint.textContent = "This package name is already registered. Package names are permanent and cannot be reused.";
     hint.style.color = "var(--error-fill)";
-    return false;
+    input.style.borderColor = "var(--error-fill)";
+  } else if (!/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/.test(pkg)) {
+    hint.textContent = strict ? "Invalid format. Use reverse-DNS, e.g. com.company.product" : "Lower-case reverse-DNS format (e.g. com.company.product).";
+    hint.style.color = strict ? "var(--error-fill)" : "var(--text-03)";
+    input.style.borderColor = strict ? "var(--error-fill)" : "";
+  } else {
+    hint.innerHTML = "✓ Available — this package will be permanently reserved on submit.";
+    hint.style.color = "var(--success-fill)";
+    input.style.borderColor = "var(--success-fill)";
+    ok = true;
   }
-  if (!/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/.test(pkg)) {
-    hint.textContent = "Invalid format. Use reverse-DNS, e.g. com.company.product";
-    hint.style.color = "var(--warning-fill)";
-    return false;
-  }
-  hint.textContent = "Available — this package will be permanently reserved on submit.";
-  hint.style.color = "var(--success-fill)";
-  return true;
+  if (btn) btn.disabled = !ok;
+  return ok;
 }
 function submitRegisterApk() {
   const name = document.getElementById("regName").value.trim();
@@ -442,7 +469,7 @@ function openEditApkModal(id) {
   const cats = ["Core POS","Payment App","Firmware Companion","Support App","Peripheral Service"];
   const body = `
     <div class="input-group"><label>App Name</label><input class="input" id="editName" value="${esc(a.name)}" /></div>
-    <div class="input-group"><label>Package Name <span style="color:var(--text-03);font-weight:400">(locked for lifetime)</span></label><input class="input" id="editPkg" value="${esc(a.pkg)}" disabled readonly style="cursor:not-allowed;background:var(--field-disabled,#f4f4f4);color:var(--text-03)"/><div style="font-size:11px;color:var(--text-03);margin-top:4px;">Package names are immutable. Releases of new builds happen through Versions.</div></div>
+    <div class="input-group"><label>Package Name <span style="color:var(--text-03);font-weight:400">(locked)</span></label><div style="position:relative;"><input class="input" id="editPkg" value="${esc(a.pkg)}" disabled readonly style="cursor:not-allowed;background:#f4f4f4;color:var(--text-03);padding-right:36px;" title="Package names cannot be changed after registration"/><span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--text-03);pointer-events:none;font-size:14px;" title="Package names cannot be changed after registration">🔒</span></div><div style="font-size:11px;color:var(--text-03);margin-top:4px;">Package names cannot be changed after registration.</div></div>
     <div class="input-group"><label>Category</label><select class="input" id="editCat">${cats.map(c=>`<option ${c===a.cat?'selected':''}>${c}</option>`).join("")}</select></div>
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
       <div><div style="font-size:13px;font-weight:500;color:var(--text-02)">Mark as Mandatory</div></div>
@@ -590,6 +617,13 @@ function openUploadModal() {
   const foot = `<button class="btn btn-tertiary" onclick="closeAllModals()">Cancel</button><button class="btn btn-primary" onclick="submitUploadVersion()">Upload & Sign</button>`;
   openModal(`<h2>Upload New Version</h2><p>${esc(apk.name)} · ${esc(apk.pkg)}</p>`, body, foot);
 }
+// Generate a 64-char SHA256-style hex string
+function genSha256() {
+  const hex = "0123456789abcdef";
+  let s = "";
+  for (let i = 0; i < 64; i++) s += hex[Math.floor(Math.random()*16)];
+  return s;
+}
 function simulateFileSelect() {
   const dz = document.getElementById("uploadDZ");
   const prog = document.getElementById("uploadProgress");
@@ -597,43 +631,61 @@ function simulateFileSelect() {
   if (!dz) return;
   dz.style.display = "none";
   prog.style.display = "block";
+  // Deterministic 0→100% over ~2 seconds (10 ticks × 200ms)
   let pct = 0;
   const iv = setInterval(() => {
-    pct += Math.random()*15+5;
+    pct += 10;
     if (pct >= 100) { pct = 100; clearInterval(iv); }
     document.getElementById("uploadBar").style.width = pct+"%";
-    document.getElementById("uploadPct").textContent = Math.round(pct)+"%";
+    document.getElementById("uploadPct").textContent = pct+"%";
     if (pct >= 100) {
       document.getElementById("uploadStatus").textContent = "Complete";
       setTimeout(() => {
         prog.style.display = "none";
         done.style.display = "block";
+        const apk = Store.apks.find(a=>a.id===Store.selectedApkId) || Store.apks[0];
         const vn = document.getElementById("uplName")?.value || "X.X.X";
         document.getElementById("uploadFileName").textContent = vn;
         const ag = document.getElementById("uplAutoGen");
         if (ag) { ag.style.display = "grid"; }
-        document.getElementById("uplSha").textContent = "a1f9c3d7e8b2…e4b8f1";
-        const code = document.getElementById("uplCode")?.value || "000";
-        document.getElementById("uplUrl").textContent = `cdn.tms/apk/${Store.selectedApkId.replace("APK-","")}/${code}`;
-      }, 400);
+        const sha = genSha256();
+        document.getElementById("uplSha").textContent = sha.slice(0,32) + "…" + sha.slice(-8);
+        document.getElementById("uplSha").dataset.full = sha;
+        document.getElementById("uplUrl").textContent = `https://cdn.apkmanager.io/${apk.pkg}/${vn}.apk`;
+      }, 300);
     }
   }, 200);
 }
 function submitUploadVersion() {
-  const code = parseInt(document.getElementById("uplCode")?.value);
+  const codeRaw = document.getElementById("uplCode")?.value;
+  const code = parseInt(codeRaw);
   const name = document.getElementById("uplName")?.value?.trim();
-  const min = document.getElementById("uplMin")?.value?.trim() || "4.0.0";
-  const notes = document.getElementById("uplNotes")?.value?.trim() || "";
+  const min  = document.getElementById("uplMin")?.value?.trim() || "4.0.0";
+  const notes= document.getElementById("uplNotes")?.value?.trim() || "";
   if (!code || !name) { toast("Please fill in Version Code and Version Name","error"); return; }
   const apk = Store.apks.find(a=>a.id===Store.selectedApkId) || Store.apks[0];
-  // Deactivate previous
+  // Version Code MUST be greater than every existing version code for this APK
+  const existing = Store.versions.filter(v=>v.apkId===apk.id);
+  const maxCode = existing.reduce((m,v) => Math.max(m, v.code), 0);
+  if (existing.length && code <= maxCode) {
+    toast(`Version code must be greater than ${maxCode} (current highest for ${apk.name})`, "error");
+    const inp = document.getElementById("uplCode");
+    if (inp) { inp.style.borderColor = "var(--error-fill)"; inp.focus(); }
+    return;
+  }
+  // Get auto-generated artifacts (or generate now if user didn't trigger upload)
+  const sha = document.getElementById("uplSha")?.dataset?.full || genSha256();
+  const url = `https://cdn.apkmanager.io/${apk.pkg}/${name}.apk`;
+  // First version → auto-active. Otherwise also active (newest), deactivate previous.
   Store.versions.forEach(v => { if (v.apkId===apk.id) v.active = false; });
   const vid = `V-${name.replace(/\./g,'')}`;
   Store.versions.unshift({
     vid, code, name, min, active:true, deprecated:false,
     size: (25+Math.random()*5).toFixed(1)+" MB",
-    created: today(), apkId: apk.id, notes
+    created: today(), apkId: apk.id, notes,
+    sha256: sha, downloadUrl: url
   });
+  addLog("ok", "—", apk.pkg, `Version ${name} (code ${code}) uploaded · sha256 verified · set Active`);
   closeAllModals();
   toast(`Version ${name} uploaded and set as Active`, "success");
   if (currentScreen === "s3") showScreen("s3");
@@ -801,23 +853,42 @@ function renderKETable(root) {
   if (pag) pag.innerHTML = paginationHTML(filtered.length);
 }
 function viewPayload(tid,pkg,code,dec,ts) {
-  const payload = JSON.stringify({
-    terminalId: tid, packageName: pkg, versionCode: code,
-    decision: dec.replace(/-/g,"_").toUpperCase(),
-    latestVersion: { code:421, name:"4.2.1", downloadUrl:`https://cdn.tms/apk/0012/421`, checksum:"sha256:a1f9c3d7...e4b8f1" },
-    isMandatory: Store.apks.find(a=>a.pkg===pkg)?.mandatory || false,
-    minSupported: "4.0.0",
-    timestamp: `2026-04-11T${ts}Z`
-  }, null, 2);
+  const apk = Store.apks.find(a=>a.pkg===pkg);
+  const active = apk ? Store.versions.find(v=>v.apkId===apk.id && v.active) : null;
+  const decisionMap = { allow:"Allow", optional:"OptionalUpdate", force:"ForceUpdate", "force-install":"ForceInstall" };
+  const updateRequired = dec !== "allow";
+  const payload = {
+    terminalId: tid,
+    packageName: pkg,
+    versionCode: code,
+    decision: decisionMap[dec] || dec,
+    updateRequired,
+    isMandatory: apk?.mandatory || false,
+    downloadUrl: active?.downloadUrl || (apk ? `https://cdn.apkmanager.io/${pkg}/${active?.name||"latest"}.apk` : null),
+    checksum: active?.sha256 || null,
+    latestVersionCode: active?.code || null,
+    minSupportedVersion: active?.min || null,
+    timestamp: new Date().toISOString().replace(/T.*/, `T${ts}Z`)
+  };
+  const text = JSON.stringify(payload, null, 2);
+  const escText = esc(text);
   openModal(`<h2>Key Exchange Payload</h2><p>${tid} · ${pkg}</p>`,
-    `<pre style="background:var(--base-09);color:#e6e6e6;padding:16px;border-radius:var(--r-md);font-family:ui-monospace,monospace;font-size:12px;line-height:1.8;overflow:auto;white-space:pre-wrap;">${esc(payload)}</pre>`,
-    `<button class="btn btn-tertiary" onclick="closeAllModals()">Close</button>`);
+    `<pre id="payloadJson" style="background:#0c0c0c;color:#e6e6e6;padding:16px;border-radius:var(--r-md);font-family:ui-monospace,monospace;font-size:12px;line-height:1.8;overflow:auto;white-space:pre-wrap;">${escText}</pre>`,
+    `<button class="btn btn-tertiary" onclick="copyPayload(this)" data-text="${encodeURIComponent(text)}">Copy to Clipboard</button><button class="btn btn-primary" onclick="closeAllModals()">Close</button>`);
+}
+function copyPayload(btn) {
+  const text = decodeURIComponent(btn.dataset.text || "");
+  navigator.clipboard.writeText(text).then(() => {
+    toast("Payload copied to clipboard", "success");
+    btn.textContent = "Copied ✓";
+    setTimeout(() => { btn.textContent = "Copy to Clipboard"; }, 1500);
+  }).catch(() => toast("Copy failed — select and copy manually", "error"));
 }
 function toggleLiveTail() {
   Store.liveTailActive = !Store.liveTailActive;
   const btn = document.getElementById("s5LiveBtn");
   if (btn) btn.textContent = Store.liveTailActive ? "Stop Live Tail" : "Live Tail";
-  if (Store.liveTailActive) toast("Live tail started — new events every 4s", "info");
+  if (Store.liveTailActive) toast("Live tail started — new events every 3s", "info");
   else toast("Live tail stopped", "info");
 }
 function toggleS5Filter() {
@@ -1251,20 +1322,44 @@ function showScreen(id) {
 }
 
 // ==================== LIVE SIMULATION ====================
-// Key Exchange — new row every 4s when live tail is on
-setInterval(() => {
-  if (!Store.liveTailActive) return;
-  const pkgs = Store.apks.map(a=>a.pkg);
-  const tids = Store.terminals.map(t=>t.tid);
-  const decisions = ["allow","allow","allow","optional","force","force-install"];
-  Store.keyExchanges.unshift({
-    tid: randItem(tids), pkg: randItem(pkgs),
-    code: Math.floor(Math.random()*500)+1,
-    decision: randItem(decisions), ts: nowTime()
-  });
+// Key Exchange — new row every 3s when live tail is on, applying REAL decision logic.
+// Decision rules per spec:
+//   versionCode = latest active        → allow
+//   versionCode < minSupportedVersion  → force         (Force Update)
+//   versionCode < latest, ≥ minSupp    → optional      (Optional Update)
+//   packageName not registered         → force-install (Force Install)
+function simulateKeyExchange() {
+  const tid = randItem(Store.terminals).tid;
+  // 15% chance of an unknown package → force-install
+  let pkg, code, decision;
+  if (Math.random() < 0.15) {
+    pkg = `com.unknown.app${Math.floor(Math.random()*99)}`;
+    code = Math.floor(Math.random()*500)+1;
+    decision = "force-install";
+  } else {
+    const apk = randItem(Store.apks.filter(a=>!a.deprecated));
+    pkg = apk.pkg;
+    const versions = Store.versions.filter(v=>v.apkId===apk.id);
+    const active = versions.find(v=>v.active);
+    if (!active) {
+      // No active version → treat as force-install
+      code = Math.floor(Math.random()*500)+1;
+      decision = "force-install";
+    } else {
+      const minCode = parseInt(active.min.replace(/\./g,''),10) || 0;
+      // Generate a plausible reported version code
+      const candidates = [active.code, active.code, Math.max(0, active.code-2), Math.max(0, active.code-20), Math.max(0, minCode-5)];
+      code = randItem(candidates);
+      if (code === active.code)        decision = "allow";
+      else if (code < minCode)         decision = "force";
+      else                             decision = "optional";
+    }
+  }
+  Store.keyExchanges.unshift({ tid, pkg, code, decision, ts: nowTime() });
   if (Store.keyExchanges.length > 50) Store.keyExchanges.pop();
   if (currentScreen === "s5") renderKETable();
-}, 4000);
+}
+setInterval(() => { if (Store.liveTailActive) simulateKeyExchange(); }, 3000);
 
 // Monitoring logs — new entry every 5s
 setInterval(() => {
@@ -1319,7 +1414,7 @@ Object.assign(window, {
   filterVersionTable, setActiveVersion, deprecateVersion, showReleaseNotes, showVersionNotes,
   submitUploadVersion, simulateFileSelect,
   filterTerminals, toggleTerminalExpand, forceSyncTerminal, forceSyncAll, exportTerminalsCSV,
-  renderKETable, viewPayload, toggleLiveTail, toggleS5Filter,
+  renderKETable, viewPayload, copyPayload, toggleLiveTail, toggleS5Filter,
   expandRollout, pauseRollout, resumeRollout, rollbackRollout,
   openNewRolloutModal, populateNRVersions, submitNewRollout, openScheduleModal,
   renderLogTable, toggleLogFeed, exportLogsCSV, openErrorDetail,
