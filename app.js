@@ -345,14 +345,13 @@ function renderApkTable(root) {
   });
   tbody.innerHTML = filtered.map(a => `<tr>
     <td><span class="td-main">${esc(a.id)}</span></td>
-    <td><div class="td-main">${esc(a.name)}</div><div class="td-sub">${esc(a.pkg)}</div></td>
+    <td><div class="td-main">${esc(a.name)}</div><div class="td-sub">${esc(a.pkg)} <span title="Package name is immutable for the APK lifetime" style="color:var(--text-03);font-size:10px;">· locked</span></div></td>
     <td><span class="badge plain">${esc(a.cat)}</span></td>
-    <td>${a.deprecated ? '<span class="badge error">Deprecated</span>' : (a.mandatory ? '<span class="badge error">Mandatory</span>' : '<span class="badge neutral">Optional</span>')}</td>
+    <td>${a.mandatory ? '<span class="badge error">Mandatory</span>' : '<span class="badge neutral">Optional</span>'}</td>
     <td><span class="td-sub" style="margin-top:0">${a.created}</span></td>
     <td><div class="row-actions">
       <button class="link-btn" onclick="Store.selectedApkId='${a.id}';showScreen('s3')">View Versions</button>
       <button class="btn btn-sm btn-ghost" onclick="openEditApkModal('${a.id}')">Edit</button>
-      ${a.deprecated ? '' : `<button class="btn btn-sm btn-ghost" style="color:var(--error-fill)" onclick="deprecateApk('${a.id}')">Deprecate</button>`}
     </div></td>
   </tr>`).join("");
   if (pag) pag.innerHTML = paginationHTML(filtered.length);
@@ -364,21 +363,18 @@ function exportApksCSV() {
   downloadCSV("apk-registry.csv", rows);
 }
 function deprecateApk(id) {
-  const a = Store.apks.find(x=>x.id===id);
-  if (!a) return;
-  confirm2("Deprecate APK", `Are you sure you want to deprecate <b>${esc(a.name)}</b>? This action cannot be undone.`, () => {
-    a.deprecated = true;
-    renderApkTable();
-    toast(`${a.name} has been deprecated`, "warn");
-  }, true);
+  // APKs cannot be deprecated — registration is once-in-a-lifetime per spec.
+  // Use Version-level deprecation instead.
+  toast("APKs are registered once in a lifetime. Deprecate a Version instead.", "warn");
 }
 
 // ==================== REGISTER APK MODAL ====================
 function openRegisterModal() {
   const cats = ["Core POS","Payment App","Firmware Companion","Support App","Peripheral Service"];
   const body = `
+    <div class="alert info" style="margin-bottom:14px;"><div class="icon">i</div><div><div class="t">One-time, lifetime registration</div><div class="d">An APK can only be registered once. The Package Name is the immutable identifier — it cannot be re-registered, deleted, or reused, even after deprecation. New releases of this app are added as Versions.</div></div></div>
     <div class="input-group"><label>App Name</label><input class="input" id="regName" placeholder="e.g. Neo Core POS" /></div>
-    <div class="input-group"><label>Package Name</label><input class="input" id="regPkg" placeholder="e.g. com.neo.core.pos" /></div>
+    <div class="input-group"><label>Package Name <span style="color:var(--text-03);font-weight:400">(unique, immutable)</span></label><input class="input" id="regPkg" placeholder="e.g. com.neo.core.pos" oninput="validateRegPkg()" /><div id="regPkgHint" style="font-size:11px;color:var(--text-03);margin-top:4px;">Lower-case reverse-DNS format. This value is permanent.</div></div>
     <div class="input-group"><label>Category</label><select class="input" id="regCat">${cats.map(c=>`<option>${c}</option>`).join("")}</select></div>
     <div class="input-group"><label>App ID (auto-generated)</label><input class="input" value="${genId()}" disabled id="regId" /></div>
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
@@ -387,23 +383,54 @@ function openRegisterModal() {
     </div>`;
   const foot = `<button class="btn btn-tertiary" onclick="closeAllModals()">Cancel</button><button class="btn btn-primary" onclick="submitRegisterApk()">Register APK</button>`;
   openModal("<h2>Register New APK</h2><p>Create a new APK entry in the Registry Service.</p>", body, foot);
-  // reset auto-gen id
+  // reset auto-gen id (preview only)
   Store.nextApkNum--;
+}
+function validateRegPkg() {
+  const input = document.getElementById("regPkg");
+  const hint  = document.getElementById("regPkgHint");
+  if (!input || !hint) return false;
+  const pkg = input.value.trim().toLowerCase();
+  if (!pkg) { hint.textContent = "Lower-case reverse-DNS format. This value is permanent."; hint.style.color = "var(--text-03)"; return false; }
+  const dup = Store.apks.find(a => a.pkg.toLowerCase() === pkg);
+  if (dup) {
+    hint.innerHTML = `Already registered as <b>${esc(dup.id)} · ${esc(dup.name)}</b>. Package names are reserved for life.`;
+    hint.style.color = "var(--error-fill)";
+    return false;
+  }
+  if (!/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/.test(pkg)) {
+    hint.textContent = "Invalid format. Use reverse-DNS, e.g. com.company.product";
+    hint.style.color = "var(--warning-fill)";
+    return false;
+  }
+  hint.textContent = "Available — this package will be permanently reserved on submit.";
+  hint.style.color = "var(--success-fill)";
+  return true;
 }
 function submitRegisterApk() {
   const name = document.getElementById("regName").value.trim();
-  const pkg = document.getElementById("regPkg").value.trim();
+  const pkg  = document.getElementById("regPkg").value.trim();
   if (!name || !pkg) { toast("Please fill in App Name and Package Name", "error"); return; }
+  // LIFETIME UNIQUENESS — case-insensitive, includes deprecated entries
+  const dup = Store.apks.find(a => a.pkg.toLowerCase() === pkg.toLowerCase());
+  if (dup) {
+    toast(`Package "${pkg}" is already registered as ${dup.id} · ${dup.name}. APKs are register-once-per-lifetime.`, "error");
+    return;
+  }
+  if (!/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/.test(pkg.toLowerCase())) {
+    toast("Package name must be lower-case reverse-DNS (e.g. com.company.pos)", "error");
+    return;
+  }
   const id = genId();
   Store.apks.push({
-    id, name, pkg,
+    id, name, pkg: pkg.toLowerCase(),
     cat: document.getElementById("regCat").value,
     mandatory: document.getElementById("regMandatory").checked,
     deprecated: false,
     created: today()
   });
   closeAllModals();
-  toast(`${name} registered as ${id}`, "success");
+  toast(`${name} registered as ${id} — package "${pkg}" is now permanently reserved.`, "success");
   if (currentScreen === "s2") renderApkTable();
   else if (currentScreen === "s1") showScreen("s1");
 }
@@ -415,20 +442,20 @@ function openEditApkModal(id) {
   const cats = ["Core POS","Payment App","Firmware Companion","Support App","Peripheral Service"];
   const body = `
     <div class="input-group"><label>App Name</label><input class="input" id="editName" value="${esc(a.name)}" /></div>
-    <div class="input-group"><label>Package Name</label><input class="input" id="editPkg" value="${esc(a.pkg)}" /></div>
+    <div class="input-group"><label>Package Name <span style="color:var(--text-03);font-weight:400">(locked for lifetime)</span></label><input class="input" id="editPkg" value="${esc(a.pkg)}" disabled readonly style="cursor:not-allowed;background:var(--field-disabled,#f4f4f4);color:var(--text-03)"/><div style="font-size:11px;color:var(--text-03);margin-top:4px;">Package names are immutable. Releases of new builds happen through Versions.</div></div>
     <div class="input-group"><label>Category</label><select class="input" id="editCat">${cats.map(c=>`<option ${c===a.cat?'selected':''}>${c}</option>`).join("")}</select></div>
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
       <div><div style="font-size:13px;font-weight:500;color:var(--text-02)">Mark as Mandatory</div></div>
       <label class="toggle"><input type="checkbox" id="editMandatory" ${a.mandatory?'checked':''} /><span class="slider"></span></label>
     </div>`;
   const foot = `<button class="btn btn-tertiary" onclick="closeAllModals()">Cancel</button><button class="btn btn-primary" onclick="submitEditApk('${id}')">Save Changes</button>`;
-  openModal(`<h2>Edit APK</h2><p>${esc(a.id)}</p>`, body, foot);
+  openModal(`<h2>Edit APK</h2><p>${esc(a.id)} · ${esc(a.pkg)}</p>`, body, foot);
 }
 function submitEditApk(id) {
   const a = Store.apks.find(x=>x.id===id);
   if (!a) return;
   a.name = document.getElementById("editName").value.trim() || a.name;
-  a.pkg = document.getElementById("editPkg").value.trim() || a.pkg;
+  // packageName is immutable — never updated
   a.cat = document.getElementById("editCat").value;
   a.mandatory = document.getElementById("editMandatory").checked;
   closeAllModals();
@@ -1288,7 +1315,7 @@ showScreen("s1");
 // ==================== EXPOSE GLOBALS FOR ONCLICK HANDLERS ====================
 Object.assign(window, {
   showScreen, openRegisterModal, openUploadModal, openEditApkModal, deprecateApk,
-  submitRegisterApk, submitEditApk, exportApksCSV, filterApkTable,
+  submitRegisterApk, submitEditApk, exportApksCSV, filterApkTable, validateRegPkg,
   filterVersionTable, setActiveVersion, deprecateVersion, showReleaseNotes, showVersionNotes,
   submitUploadVersion, simulateFileSelect,
   filterTerminals, toggleTerminalExpand, forceSyncTerminal, forceSyncAll, exportTerminalsCSV,
