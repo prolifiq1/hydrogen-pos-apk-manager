@@ -63,13 +63,45 @@ const Store = {
     { ts:"14:10:45.998", lvl:"info", tid:"T-20031210", pkg:"com.neo.hypercity.kiosk v1.9.8", msg:"Key exchange initiated" },
     { ts:"14:10:22.514", lvl:"warn", tid:"T-20018834", pkg:"com.neo.peripheral v1.0.3",      msg:"Optional peripheral service behind by 1 minor" },
   ],
+  // ApksCategory table — matches the ERD (id pk, CategoryName).
+  // Source of truth for every category dropdown.
+  categories: [
+    { id:"CAT-01", CategoryName:"Core POS" },
+    { id:"CAT-02", CategoryName:"Payment App" },
+    { id:"CAT-03", CategoryName:"Firmware Companion" },
+    { id:"CAT-04", CategoryName:"Support App" },
+    { id:"CAT-05", CategoryName:"Peripheral Service" },
+    { id:"CAT-06", CategoryName:"Pilot" },
+  ],
+  // terminal_buckets — matches the ERD (id, name, description, isActive, createdAt).
+  // The product/apk/ver/terminals/rollout fields are UI denormalizations kept for display speed.
   buckets: [
-    { name:"Ardova-Prod",      product:"Ardova Fuel",       apk:"com.neo.ardova.fuel",     ver:"3.1.0", terminals:312, rollout:100 },
-    { name:"Merchant-General", product:"General Merchant",  apk:"com.neo.core.pos",        ver:"4.2.1", terminals:1248, rollout:62 },
-    { name:"Osun-IGR",         product:"Osun IGR",          apk:"com.neo.osun.igr",        ver:"1.3.0", terminals:184, rollout:100 },
-    { name:"Hypercity",        product:"Hypercity Kiosk",   apk:"com.neo.hypercity.kiosk", ver:"2.0.0", terminals:96,  rollout:45 },
-    { name:"Greatbrand",       product:"Greatbrand Retail", apk:"com.neo.greatbrand",      ver:"1.0.2", terminals:73,  rollout:100 },
-    { name:"Aba-Power",        product:"Aba Power",         apk:"com.neo.abapower",        ver:"2.4.0", terminals:128, rollout:90 },
+    { id:"BKT-001", name:"Ardova-Prod",      description:"Ardova fuel-station rollout (live merchants)",        isActive:true,  createdAt:"2025-08-14", product:"Ardova Fuel",       apk:"com.neo.ardova.fuel",     ver:"3.1.0", terminals:312, rollout:100 },
+    { id:"BKT-002", name:"Merchant-General", description:"Default fleet bucket for general merchants",          isActive:true,  createdAt:"2025-06-02", product:"General Merchant",  apk:"com.neo.core.pos",        ver:"4.2.1", terminals:1248, rollout:62 },
+    { id:"BKT-003", name:"Osun-IGR",         description:"Osun State IGR collection terminals",                 isActive:true,  createdAt:"2025-09-30", product:"Osun IGR",          apk:"com.neo.osun.igr",        ver:"1.3.0", terminals:184, rollout:100 },
+    { id:"BKT-004", name:"Hypercity",        description:"Hypercity supermarket kiosks · pilot scope",          isActive:true,  createdAt:"2025-11-21", product:"Hypercity Kiosk",   apk:"com.neo.hypercity.kiosk", ver:"2.0.0", terminals:96,  rollout:45 },
+    { id:"BKT-005", name:"Greatbrand",       description:"Greatbrand retail chain — phased rollout completed",  isActive:true,  createdAt:"2025-10-08", product:"Greatbrand Retail", apk:"com.neo.greatbrand",      ver:"1.0.2", terminals:73,  rollout:100 },
+    { id:"BKT-006", name:"Aba-Power",        description:"Aba Power utility-payment merchants",                 isActive:true,  createdAt:"2025-12-02", product:"Aba Power",         apk:"com.neo.abapower",        ver:"2.4.0", terminals:128, rollout:90 },
+  ],
+  // terminal_bucket_members — explicit join table (id, terminalId, bucketId, addedAt).
+  // Populated below from terminal.bucket to keep the ERD shape visible.
+  bucketMembers: [],
+  // terminal_apk_installs — install ledger (id, terminalId, apkVersionId, installedAt, removedAt, rollbacked).
+  terminalApkInstalls: [
+    { id:"INS-0001", terminalId:"T-20014521", apkVersionId:"V-4.2.1", installedAt:"2026-05-11T09:42:00Z", removedAt:null, rollbacked:false },
+    { id:"INS-0002", terminalId:"T-20014522", apkVersionId:"V-4.2.1", installedAt:"2026-05-11T09:38:00Z", removedAt:null, rollbacked:false },
+    { id:"INS-0003", terminalId:"T-20031154", apkVersionId:"V-4.2.5-PILOT", installedAt:"2026-05-09T11:14:00Z", removedAt:null, rollbacked:false },
+    { id:"INS-0004", terminalId:"T-20031210", apkVersionId:"V-4.2.5-PILOT", installedAt:"2026-05-09T11:21:00Z", removedAt:null, rollbacked:false },
+  ],
+  // apk_downloads — download audit ledger (id, terminalId, apkVersionId, downloadedAt, status).
+  apkDownloads: [
+    { id:"DL-0001", terminalId:"T-20014521", apkVersionId:"V-4.2.1", downloadedAt:"2026-05-11T09:41:32Z", status:"completed" },
+    { id:"DL-0002", terminalId:"T-20022714", apkVersionId:"V-1.3.0", downloadedAt:"2026-05-11T09:25:00Z", status:"failed-checksum" },
+    { id:"DL-0003", terminalId:"T-20031154", apkVersionId:"V-4.2.5-PILOT", downloadedAt:"2026-05-09T11:13:50Z", status:"completed" },
+  ],
+  // apk_removals — removal/rollback ledger (id, terminalId, apkVersionId, removedAt, reason).
+  apkRemovals: [
+    { id:"RM-0001", terminalId:"T-20022891", apkVersionId:"V-1.2.0", removedAt:"2026-04-09T14:33:00Z", reason:"Force update — version below minSupported" },
   ],
   reassignHistory: [
     { tid:"T-20018834", from:"Ardova-Prod",      to:"Merchant-General", when:"2026-04-09", reason:"Merchant re-onboarded to General product" },
@@ -89,6 +121,22 @@ const Store = {
   liveTailActive: false,
   logFeedPaused: false,
 };
+
+// Hydrate terminal_bucket_members from terminal records — keeps the join table consistent
+// with the ERD shape. Every write to Store.terminals/buckets should re-run rebuildBucketMembers().
+function rebuildBucketMembers() {
+  let nextId = 1;
+  Store.bucketMembers = Store.terminals.map(t => {
+    const b = Store.buckets.find(x => x.name === t.bucket);
+    return {
+      id: `BM-${String(nextId++).padStart(4,'0')}`,
+      terminalId: t.tid,
+      bucketId: b?.id || null,
+      addedAt: "2026-04-01T00:00:00Z"
+    };
+  });
+}
+rebuildBucketMembers();
 
 const SCREEN_META = {
   s1: { title:"Dashboard",                  sub:"Overview of APK distribution health" },
@@ -347,7 +395,7 @@ function screen2() {
         <div class="filters">
           <select class="input" style="min-width:180px;" id="s2CatFilter" onchange="filterApkTable()">
             <option value="">All Categories</option>
-            <option>Core POS</option><option>Payment App</option><option>Firmware Companion</option><option>Support App</option><option>Peripheral Service</option><option>Pilot</option>
+            ${Store.categories.map(c => `<option>${esc(c.CategoryName)}</option>`).join("")}
           </select>
           <input class="input" placeholder="Search by name or package…" style="min-width:260px;" id="s2Search" oninput="filterApkTable()" />
         </div>
@@ -415,7 +463,8 @@ function deprecateApk(id) {
 
 // ==================== REGISTER APK MODAL ====================
 function openRegisterModal() {
-  const cats = ["Core POS","Payment App","Firmware Companion","Support App","Peripheral Service","Pilot"];
+  // Sourced from ApksCategory table (Store.categories) per the ERD.
+  const cats = Store.categories.map(c => c.CategoryName);
   const body = `
     <div class="alert info" style="margin-bottom:14px;"><div class="icon">i</div><div><div class="t">One-time, lifetime registration</div><div class="d">An APK can only be registered once. The Package Name is the immutable identifier — it cannot be re-registered, deleted, or reused, even after deprecation. New releases of this app are added as Versions.</div></div></div>
     <div class="input-group"><label>App Name</label><input class="input" id="regName" placeholder="e.g. Neo Core POS" /></div>
@@ -489,7 +538,7 @@ function submitRegisterApk() {
 function openEditApkModal(id) {
   const a = Store.apks.find(x=>x.id===id);
   if (!a) return;
-  const cats = ["Core POS","Payment App","Firmware Companion","Support App","Peripheral Service","Pilot"];
+  const cats = Store.categories.map(c => c.CategoryName);
   const body = `
     <div class="input-group"><label>App Name</label><input class="input" id="editName" value="${esc(a.name)}" /></div>
     <div class="input-group"><label>Package Name <span style="color:var(--text-03);font-weight:400">(locked)</span></label><div style="position:relative;"><input class="input" id="editPkg" value="${esc(a.pkg)}" disabled readonly style="cursor:not-allowed;background:#f4f4f4;color:var(--text-03);padding-right:36px;" title="Package names cannot be changed after registration"/><span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--text-03);pointer-events:none;font-size:14px;" title="Package names cannot be changed after registration">🔒</span></div><div style="font-size:11px;color:var(--text-03);margin-top:4px;">Package names cannot be changed after registration.</div></div>
@@ -1202,18 +1251,26 @@ function screen8() {
   const el = document.createElement("section");
   el.className = "screen"; el.id = "s8";
   const cards = Store.buckets.map((b,bi) => `
-    <div class="bucket-card">
+    <div class="bucket-card" style="${b.isActive===false?'opacity:.55;':''}">
       <div class="top">
-        <div><div class="name">${esc(b.name)}</div><div class="meta">${esc(b.product)}</div></div>
-        <span class="badge ${b.rollout===100?'success':'warning'}">${b.rollout}% rolled out</span>
+        <div>
+          <div class="name">${esc(b.name)} <span style="color:var(--text-03);font-size:10px;font-weight:500;font-family:ui-monospace,monospace;">${esc(b.id||'')}</span></div>
+          <div class="meta">${esc(b.product)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+          ${b.isActive===false ? '<span class="badge neutral">Inactive</span>' : '<span class="badge success">Active</span>'}
+          <span class="badge ${b.rollout===100?'success':'warning'}">${b.rollout}% rolled out</span>
+        </div>
       </div>
+      ${b.description ? `<div style="font-size:12px;color:var(--text-03);padding:6px 2px 8px;line-height:1.5;">${esc(b.description)}</div>` : ''}
       <div class="kv" style="background:var(--base-02);border:none;">
         <div class="k">APK Package</div><div class="v" style="font-family:ui-monospace,monospace;font-size:12px;">${esc(b.apk)}</div>
       </div>
       <div class="progress ${b.rollout===100?'g':'y'}" style="margin-top:10px;" title="${b.terminals} terminals at ${b.rollout}%"><div class="fill" style="width:${b.rollout}%"></div></div>
       <div class="stats">
         <div><span class="k">Version</span><span class="v">${b.ver}</span></div>
-        <div><span class="k">Terminals</span><span class="v">${b.terminals.toLocaleString()}</span></div>
+        <div><span class="k">Members</span><span class="v">${b.terminals.toLocaleString()}</span></div>
+        <div><span class="k">Created</span><span class="v" style="font-size:11px;">${esc(b.createdAt||'—')}</span></div>
       </div>
       <div style="display:flex;gap:6px;margin-top:var(--sp-3);">
         <button class="btn btn-sm btn-tertiary" style="flex:1" onclick="openAssignTerminals(${bi})">Assign Terminals</button>
@@ -1274,30 +1331,51 @@ function populateCBVersions() {
 }
 function submitCreateBucket() {
   const name = document.getElementById("cbName").value.trim();
+  const desc = document.getElementById("cbDesc").value.trim();
   const apk = document.getElementById("cbApk").value;
   const ver = document.getElementById("cbVer").value;
   if (!name || !apk) { toast("Please fill in Bucket Name and APK", "error"); return; }
-  Store.buckets.push({ name, product: name, apk, ver: ver || "1.0.0", terminals: 0, rollout: 0 });
+  // ERD-aligned record: id, name, description, isActive, createdAt + UI denormalizations
+  const id = `BKT-${String(Store.buckets.length+1).padStart(3,'0')}`;
+  Store.buckets.push({
+    id, name,
+    description: desc || `Custom bucket created ${today()}`,
+    isActive: true,
+    createdAt: today(),
+    product: name, apk, ver: ver || "1.0.0",
+    terminals: 0, rollout: 0
+  });
+  rebuildBucketMembers();
   closeAllModals();
-  toast(`Bucket "${name}" created`, "success");
+  toast(`Bucket "${name}" created (${id})`, "success");
   showScreen("s8");
 }
 function openEditBucket(bi) {
   const b = Store.buckets[bi];
   const body = `
     <div class="input-group"><label>Bucket Name</label><input class="input" id="ebName" value="${esc(b.name)}" /></div>
+    <div class="input-group"><label>Description</label><input class="input" id="ebDesc" value="${esc(b.description||'')}" placeholder="Describe this bucket's purpose" /></div>
     <div class="input-group"><label>Product</label><input class="input" id="ebProduct" value="${esc(b.product)}" /></div>
     <div class="input-group"><label>APK Package</label><input class="input" value="${esc(b.apk)}" disabled /></div>
-    <div class="input-group"><label>Version</label><input class="input" id="ebVer" value="${esc(b.ver)}" /></div>`;
+    <div class="input-group"><label>Version</label><input class="input" id="ebVer" value="${esc(b.ver)}" /></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
+      <div><div style="font-size:13px;font-weight:500;color:var(--text-02)">Bucket is Active</div><div style="font-size:12px;color:var(--text-03)">Inactive buckets are skipped during key-exchange resolution.</div></div>
+      <label class="toggle"><input type="checkbox" id="ebActive" ${b.isActive!==false?'checked':''} /><span class="slider"></span></label>
+    </div>
+    <div style="font-size:11px;color:var(--text-03);padding:6px 2px 0;">${esc(b.id||'—')} · created ${esc(b.createdAt||'unknown')}</div>`;
   const foot = `<button class="btn btn-tertiary" onclick="closeAllModals()">Cancel</button><button class="btn btn-primary" onclick="submitEditBucket(${bi})">Save Changes</button>`;
   openModal(`<h2>Edit Bucket</h2><p>${esc(b.name)}</p>`, body, foot);
 }
 function submitEditBucket(bi) {
-  Store.buckets[bi].name = document.getElementById("ebName").value.trim();
-  Store.buckets[bi].product = document.getElementById("ebProduct").value.trim();
-  Store.buckets[bi].ver = document.getElementById("ebVer").value.trim();
+  const b = Store.buckets[bi];
+  b.name = document.getElementById("ebName").value.trim();
+  b.description = document.getElementById("ebDesc").value.trim();
+  b.product = document.getElementById("ebProduct").value.trim();
+  b.ver = document.getElementById("ebVer").value.trim();
+  b.isActive = document.getElementById("ebActive").checked;
+  rebuildBucketMembers();
   closeAllModals();
-  toast("Bucket updated", "success");
+  toast(`Bucket "${b.name}" updated`, "success");
   showScreen("s8");
 }
 function openAssignTerminals(bi) {
@@ -1330,6 +1408,7 @@ function submitAssignTerminals(bi) {
     if (tids.includes(t.tid)) t.bucket = b.name;
   });
   b.terminals = tids.length;
+  rebuildBucketMembers();
   closeAllModals();
   toast(`${tids.length} terminals assigned to ${b.name}`, "success");
   showScreen("s8");
