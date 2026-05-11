@@ -611,6 +611,7 @@ tbody tr:last-child td { border-bottom: none; }
 .feed-icon.b { background: var(--info-bg); color: #1d6ec1; }
 .feed-icon.r { background: var(--error-bg); color: #b5151a; }
 .feed-icon.y { background: var(--warning-bg); color: #7a5a00; }
+.feed-icon.p { background: #ece9ff; color: #534ab7; }
 .feed-text { flex: 1; min-width: 0; }
 .feed-text .t { font-size: 13px; color: var(--text-01); }
 .feed-text .t b { font-weight: 600; }

@@ -15,6 +15,7 @@ const Store = {
     { id:"APK-0036", name:"Neo Peripheral Svc",  pkg:"com.neo.peripheral",      cat:"Peripheral Service", mandatory:false, deprecated:false, created:"2026-01-18" },
     { id:"APK-0041", name:"TMS Support Agent",   pkg:"com.neo.support.agent",   cat:"Support App",        mandatory:false, deprecated:false, created:"2026-02-02" },
     { id:"APK-0045", name:"Firmware Companion",  pkg:"com.neo.fw.companion",    cat:"Firmware Companion", mandatory:true,  deprecated:false, created:"2026-03-11" },
+    { id:"APK-0048", name:"Neo Core POS · Pilot",pkg:"com.neo.core.pos.pilot",  cat:"Pilot",              mandatory:false, deprecated:false, created:"2026-04-22" },
   ],
   versions: [
     { vid:"V-4.2.1", code:421, name:"4.2.1", min:"4.0.0", active:true,  deprecated:false, size:"28.4 MB", created:"2026-04-02", apkId:"APK-0012", notes:"Fix crash when reconnecting after key exchange\nFaster cold start on H50 terminals\nSupport new Ardova SKUs" },
@@ -23,6 +24,7 @@ const Store = {
     { vid:"V-4.1.2", code:412, name:"4.1.2", min:"3.9.0", active:false, deprecated:false, size:"27.6 MB", created:"2026-01-30", apkId:"APK-0012", notes:"Minor updates" },
     { vid:"V-4.0.9", code:409, name:"4.0.9", min:"3.9.0", active:false, deprecated:true,  size:"26.8 MB", created:"2025-12-15", apkId:"APK-0012", notes:"Legacy version" },
     { vid:"V-4.0.0", code:400, name:"4.0.0", min:"3.8.0", active:false, deprecated:true,  size:"26.2 MB", created:"2025-11-04", apkId:"APK-0012", notes:"Initial 4.x release" },
+    { vid:"V-4.3.0-rc1", code:430, name:"4.3.0-rc1", min:"4.2.0", active:true, deprecated:false, size:"29.1 MB", created:"2026-04-25", apkId:"APK-0048", notes:"Pilot build · validating new key-exchange handshake on 50 staging terminals only. Not for production rollout." },
   ],
   terminals: [
     { tid:"T-20014521", sn:"H50-AB-00014521", bucket:"Ardova-Prod",      installed:6, sync:"2m ago",  status:"ok" },
@@ -245,13 +247,17 @@ const paginationHTML = (total) => `
 function screen1() {
   const el = document.createElement("section");
   el.className = "screen active"; el.id = "s1";
+  // Audit-trail feed — sourced from logs + key exchanges + APK lifecycle events.
+  // Per meeting: include upgrade logs, key-exchange decisions w/ timestamps, app release status.
   const feedItems = [
-    { col:"g", ch:"✓", t:'<b>Neo Core POS 4.2.1</b> installed on T-20014521', time:"2 minutes ago", screen:"s7" },
-    { col:"r", ch:"✕", t:'<b>Osun IGR 1.2.3</b> install failed on T-20022714 · checksum mismatch', time:"4 minutes ago", screen:"s7" },
-    { col:"b", ch:"↓", t:'<b>Ardova Fuel 3.1.0</b> downloaded by 48 terminals', time:"8 minutes ago", screen:"s6" },
-    { col:"y", ch:"!", t:'<b>Hypercity 2.0.0</b> pending user confirmation', time:"14 minutes ago", screen:"s6" },
-    { col:"g", ch:"✓", t:'Version <b>4.2.1</b> promoted to Active', time:"22 minutes ago", screen:"s3" },
-    { col:"b", ch:"↓", t:'New APK <b>Firmware Companion</b> registered', time:"1 hour ago", screen:"s2" },
+    { col:"g", ch:"✓", t:'<b>UPGRADE</b> · Neo Core POS 4.2.1 installed on T-20014521', time:"2 min ago", screen:"s7", tag:"Install" },
+    { col:"r", ch:"✕", t:'<b>UPGRADE FAILED</b> · Osun IGR 1.2.3 on T-20022714 · checksum mismatch', time:"4 min ago", screen:"s7", tag:"Failure" },
+    { col:"p", ch:"⇋", t:'<b>KEY EXCHANGE</b> · T-20022714 → ForceUpdate (com.neo.osun.igr)', time:"5 min ago", screen:"s5", tag:"Handshake" },
+    { col:"b", ch:"↓", t:'<b>DOWNLOAD</b> · Ardova Fuel 3.1.0 fetched by 48 terminals', time:"8 min ago", screen:"s6", tag:"Download" },
+    { col:"y", ch:"!", t:'<b>OPTIONAL UPDATE</b> · Hypercity 2.0.0 pending user confirmation', time:"14 min ago", screen:"s6", tag:"Pending" },
+    { col:"g", ch:"⇪", t:'<b>RELEASE</b> · Version 4.2.1 promoted to Active', time:"22 min ago", screen:"s3", tag:"Release" },
+    { col:"p", ch:"⇋", t:'<b>KEY EXCHANGE</b> · T-20018834 → Allow (com.neo.core.pos v4.2.1)', time:"38 min ago", screen:"s5", tag:"Handshake" },
+    { col:"b", ch:"+", t:'<b>REGISTRY</b> · Firmware Companion registered (com.neo.fw.companion)', time:"1 hr ago", screen:"s2", tag:"Registry" },
   ];
   const barRow = (name,cls,pct,count) => `<div class="bar-row"><div class="name">${name}</div><div class="track"><div class="bar ${cls}" style="width:${pct}%"></div></div><div class="count">${count}</div></div>`;
 
@@ -268,10 +274,30 @@ function screen1() {
       </div>
     </div>
     <div class="stat-grid">
-      <div class="stat-card"><div class="label">Total APKs <div class="stat-icon y">●</div></div><div class="value">${Store.apks.length}</div><div><span class="delta up">▲ 3 this month</span></div></div>
-      <div class="stat-card"><div class="label">Active Versions <div class="stat-icon g">●</div></div><div class="value">${Store.versions.filter(v=>v.active).length}</div><div><span class="delta up">▲ 2 promoted</span></div></div>
-      <div class="stat-card"><div class="label">Pending Updates <div class="stat-icon r">●</div></div><div class="value" id="pendingCount">${Store.pendingUpdates}</div><div><span class="delta down">▼ 58 since yesterday</span></div></div>
-      <div class="stat-card"><div class="label">Connected Terminals <div class="stat-icon b">●</div></div><div class="value">2,041</div><div><span class="delta up">▲ 99.2% online</span></div></div>
+      <!-- ACTIVE VERSIONS — primary card, with Pending Updates nested as a sub-stat -->
+      <div class="stat-card" style="grid-column:span 2;">
+        <div class="label">Active Versions <div class="stat-icon g">●</div></div>
+        <div class="value">${Store.versions.filter(v=>v.active).length}</div>
+        <div style="display:flex;gap:24px;margin-top:14px;padding-top:14px;border-top:1px solid var(--base-03);">
+          <div>
+            <div style="font-size:11px;color:var(--text-03);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Pending Updates</div>
+            <div style="font-size:20px;font-weight:600;color:#b5151a;margin-top:2px;" id="pendingCount">${Store.pendingUpdates}</div>
+            <div style="font-size:11px;color:var(--text-03);margin-top:2px;">terminals awaiting upgrade</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-03);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Pilot Versions</div>
+            <div style="font-size:20px;font-weight:600;color:var(--accent-default);margin-top:2px;">${Store.versions.filter(v=>v.active&&Store.apks.find(a=>a.id===v.apkId)?.cat==="Pilot").length}</div>
+            <div style="font-size:11px;color:var(--text-03);margin-top:2px;">isolated from prod rollout</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-03);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Deprecated</div>
+            <div style="font-size:20px;font-weight:600;color:var(--text-03);margin-top:2px;">${Store.versions.filter(v=>v.deprecated).length}</div>
+            <div style="font-size:11px;color:var(--text-03);margin-top:2px;">versions phased out</div>
+          </div>
+        </div>
+      </div>
+      <div class="stat-card"><div class="label">Total APKs <div class="stat-icon y">●</div></div><div class="value">${Store.apks.length}</div><div><span class="delta up">▲ 3 this month · register-once</span></div></div>
+      <div class="stat-card"><div class="label">Updated Terminals <span style="font-size:10px;color:var(--text-03);font-weight:500;margin-left:4px;">(last 24h)</span> <div class="stat-icon b">●</div></div><div class="value">1,924</div><div><span class="delta up">▲ 94.3% on latest</span><div style="font-size:10px;color:var(--text-03);margin-top:2px;">transacted within 24 hr</div></div></div>
     </div>
     <div class="grid-2">
       <div class="card">
@@ -287,10 +313,10 @@ function screen1() {
         </div>
       </div>
       <div class="card">
-        <div class="card-head"><h3>Recent activity</h3></div>
+        <div class="card-head"><div><h3>Recent activity · Audit trail</h3><div class="sub">Upgrade logs, key-exchange decisions &amp; release events · click any row to drill in</div></div><button class="btn btn-sm btn-tertiary" onclick="showScreen('s7')">View full log</button></div>
         <div class="card-body" style="padding-top:8px;">
           <div class="feed">
-            ${feedItems.map(f => `<div class="feed-item" style="cursor:pointer" onclick="showScreen('${f.screen}')"><div class="feed-icon ${f.col}">${f.ch}</div><div class="feed-text"><div class="t">${f.t}</div><div class="time">${f.time}</div></div></div>`).join("")}
+            ${feedItems.map(f => `<div class="feed-item" style="cursor:pointer" onclick="showScreen('${f.screen}')"><div class="feed-icon ${f.col}">${f.ch}</div><div class="feed-text"><div class="t">${f.t}</div><div class="time">${f.time}${f.tag?` · <span style="color:var(--text-03);font-weight:500;">${f.tag}</span>`:''}</div></div></div>`).join("")}
           </div>
         </div>
       </div>
@@ -319,7 +345,7 @@ function screen2() {
         <div class="filters">
           <select class="input" style="min-width:180px;" id="s2CatFilter" onchange="filterApkTable()">
             <option value="">All Categories</option>
-            <option>Core POS</option><option>Payment App</option><option>Firmware Companion</option><option>Support App</option><option>Peripheral Service</option>
+            <option>Core POS</option><option>Payment App</option><option>Firmware Companion</option><option>Support App</option><option>Peripheral Service</option><option>Pilot</option>
           </select>
           <input class="input" placeholder="Search by name or package…" style="min-width:260px;" id="s2Search" oninput="filterApkTable()" />
         </div>
@@ -349,7 +375,7 @@ function renderApkTable(root) {
     tbody.innerHTML = filtered.map(a => `<tr style="${a.deprecated?'opacity:.55;':''}">
       <td><span class="td-main">${esc(a.id)}</span></td>
       <td><div class="td-main">${esc(a.name)}</div><div class="td-sub">${esc(a.pkg)} <span title="Package name is immutable for the APK lifetime" style="color:var(--text-03);font-size:10px;">🔒 locked</span></div></td>
-      <td><span class="badge plain">${esc(a.cat)}</span></td>
+      <td>${a.cat==="Pilot" ? `<span class="badge" style="background:#ece9ff;color:#534ab7;">⚑ Pilot</span>` : `<span class="badge plain">${esc(a.cat)}</span>`}</td>
       <td>${a.deprecated ? '<span class="badge error">Deprecated</span>' : (a.mandatory ? '<span class="badge error">Mandatory</span>' : '<span class="badge neutral">Optional</span>')}</td>
       <td><span class="td-sub" style="margin-top:0">${a.created}</span></td>
       <td><div class="row-actions">
@@ -390,7 +416,7 @@ function deprecateApk(id) {
 
 // ==================== REGISTER APK MODAL ====================
 function openRegisterModal() {
-  const cats = ["Core POS","Payment App","Firmware Companion","Support App","Peripheral Service"];
+  const cats = ["Core POS","Payment App","Firmware Companion","Support App","Peripheral Service","Pilot"];
   const body = `
     <div class="alert info" style="margin-bottom:14px;"><div class="icon">i</div><div><div class="t">One-time, lifetime registration</div><div class="d">An APK can only be registered once. The Package Name is the immutable identifier — it cannot be re-registered, deleted, or reused, even after deprecation. New releases of this app are added as Versions.</div></div></div>
     <div class="input-group"><label>App Name</label><input class="input" id="regName" placeholder="e.g. Neo Core POS" /></div>
@@ -466,7 +492,7 @@ function submitRegisterApk() {
 function openEditApkModal(id) {
   const a = Store.apks.find(x=>x.id===id);
   if (!a) return;
-  const cats = ["Core POS","Payment App","Firmware Companion","Support App","Peripheral Service"];
+  const cats = ["Core POS","Payment App","Firmware Companion","Support App","Peripheral Service","Pilot"];
   const body = `
     <div class="input-group"><label>App Name</label><input class="input" id="editName" value="${esc(a.name)}" /></div>
     <div class="input-group"><label>Package Name <span style="color:var(--text-03);font-weight:400">(locked)</span></label><div style="position:relative;"><input class="input" id="editPkg" value="${esc(a.pkg)}" disabled readonly style="cursor:not-allowed;background:#f4f4f4;color:var(--text-03);padding-right:36px;" title="Package names cannot be changed after registration"/><span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--text-03);pointer-events:none;font-size:14px;" title="Package names cannot be changed after registration">🔒</span></div><div style="font-size:11px;color:var(--text-03);margin-top:4px;">Package names cannot be changed after registration.</div></div>
@@ -514,7 +540,8 @@ function screen3() {
         </button>
       </div>
     </div>
-    ${activeV ? `<div class="alert info"><div class="icon">i</div><div><div class="t">Version ${activeV.name} is currently the Active version</div><div class="d">All terminals below the min supported version (${activeV.min}) will receive a Force Update decision at their next key exchange.</div></div></div>` : ''}
+    ${apk.cat==="Pilot" ? `<div class="alert" style="background:#ece9ff;border-left:3px solid #534ab7;"><div class="icon" style="background:#534ab7;color:white;">⚑</div><div><div class="t" style="color:#3c3489;">Pilot APK · isolated from production rollout</div><div class="d">This APK is flagged as a pilot build. It is excluded from the New Rollout selector and will only be distributed to terminals explicitly assigned to a pilot bucket. Promote to a regular category to release fleet-wide.</div></div></div>` : ''}
+    ${activeV ? `<div class="alert info"><div class="icon">i</div><div><div class="t">Version ${activeV.name} is currently the Active version</div><div class="d">All terminals below the min supported version (${activeV.min}) will receive a Force Update decision at their next key exchange. Only one version per APK can be Active at a time.</div></div></div>` : ''}
     <div class="table-wrap">
       <div class="table-head">
         <h3>All Versions</h3>
@@ -700,7 +727,7 @@ function screen4() {
   const forceCount = Store.terminals.filter(t=>t.status==="force").length;
   el.innerHTML = `
     <div class="page-head">
-      <div><h1>Terminal Management</h1><p>2,041 connected terminals · 1,698 up to date · 343 require attention</p></div>
+      <div><h1>Terminal Management</h1><p>2,041 terminals on file · 1,924 updated (last 24h) · 343 require attention</p></div>
       <div class="actions">
         <button class="btn btn-tertiary" onclick="exportTerminalsCSV()">Export</button>
         <button class="btn btn-primary" onclick="forceSyncAll()">Force Sync All</button>
@@ -824,7 +851,7 @@ function screen5() {
         </div>
       </div>
       <table><thead><tr>
-        <th>Terminal ID</th><th>Package</th><th>Version Sent</th><th>Decision</th><th>Timestamp</th><th style="text-align:right">Payload</th>
+        <th>Terminal ID</th><th>Package</th><th>Version Sent</th><th>Timestamp</th><th style="text-align:right">Payload</th>
       </tr></thead><tbody id="s5Body"></tbody></table>
       <div id="s5Pagination"></div>
     </div>`;
@@ -841,11 +868,12 @@ function renderKETable(root) {
     if (q && !k.tid.toLowerCase().includes(q) && !k.pkg.toLowerCase().includes(q)) return false;
     return true;
   });
-  tbody.innerHTML = filtered.slice(0,20).map(k => `<tr>
-    <td><span class="td-main">${k.tid}</span></td>
+  // Decision is encoded as a left border tint on the row (no separate column — redundant per design review)
+  const tint = { allow:"#1d9e75", optional:"#7a5a00", force:"#b5151a", "force-install":"#534ab7" };
+  tbody.innerHTML = filtered.slice(0,20).map(k => `<tr style="border-left:3px solid ${tint[k.decision]||'#ccc'};" title="${k.decision}">
+    <td style="padding-left:12px;"><span class="td-main">${k.tid}</span></td>
     <td><span class="td-sub" style="margin-top:0">${k.pkg}</span></td>
     <td>${k.code}</td>
-    <td>${decisionBadge(k.decision)}</td>
     <td><span class="td-sub" style="margin-top:0">${k.ts}</span></td>
     <td style="text-align:right"><button class="link-btn" onclick="viewPayload('${k.tid}','${k.pkg}',${k.code},'${k.decision}','${k.ts}')">View Payload</button></td>
   </tr>`).join("");
@@ -992,7 +1020,7 @@ function rollbackRollout(ri) {
 }
 function openNewRolloutModal() {
   const body = `
-    <div class="input-group"><label>Select APK</label><select class="input" id="nrApk" onchange="populateNRVersions()"><option value="">Choose APK…</option>${Store.apks.filter(a=>!a.deprecated).map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select></div>
+    <div class="input-group"><label>Select APK <span style="color:var(--text-03);font-weight:400;font-size:11px;">· Pilot APKs are excluded — manage pilots from the Pilot category screen</span></label><select class="input" id="nrApk" onchange="populateNRVersions()"><option value="">Choose APK…</option>${Store.apks.filter(a=>!a.deprecated && a.cat!=="Pilot").map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select></div>
     <div class="input-group"><label>Select Version</label><select class="input" id="nrVer"><option value="">Choose version…</option></select></div>
     <div class="input-group"><label>Rollout Strategy</label><select class="input" id="nrStrategy"><option value="staged">Staged (10→30→60→90→100%)</option><option value="immediate">Immediate (100%)</option></select></div>
     <div class="input-group"><label>Schedule (optional)</label><input class="input" type="datetime-local" id="nrSchedule" /></div>`;
