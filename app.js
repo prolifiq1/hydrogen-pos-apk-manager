@@ -24,18 +24,20 @@ const Store = {
     { vid:"V-4.1.2", code:412, name:"4.1.2", min:"3.9.0", active:false, deprecated:false, size:"27.6 MB", created:"2026-01-30", apkId:"APK-0012", notes:"Minor updates" },
     { vid:"V-4.0.9", code:409, name:"4.0.9", min:"3.9.0", active:false, deprecated:true,  size:"26.8 MB", created:"2025-12-15", apkId:"APK-0012", notes:"Legacy version" },
     { vid:"V-4.0.0", code:400, name:"4.0.0", min:"3.8.0", active:false, deprecated:true,  size:"26.2 MB", created:"2025-11-04", apkId:"APK-0012", notes:"Initial 4.x release" },
-    { vid:"V-4.3.0-rc1", code:430, name:"4.3.0-rc1", min:"4.2.0", active:true, deprecated:false, size:"29.1 MB", created:"2026-04-25", apkId:"APK-0048", notes:"Pilot build · validating new key-exchange handshake on 50 staging terminals only. Not for production rollout." },
+    { vid:"V-4.3.0-rc1", code:430, name:"4.3.0-rc1", min:"4.2.0", active:true, deprecated:false, size:"29.1 MB", created:"2026-04-25", apkId:"APK-0048", notes:"Pilot build · validating new key-exchange handshake on 50 staging terminals only. Not for production rollout.", bucket:null, mandatory:false, signed:true },
+    { vid:"V-4.2.5-PILOT", code:425, name:"4.2.5-pilot", min:"4.2.0", active:true, deprecated:false, size:"28.7 MB", created:"2026-05-08", apkId:"APK-0012", notes:"Pilot rollout to Hypercity bucket — tests new receipt format and offline queueing. Coexists with the General 4.2.1 release.", bucket:"Hypercity", mandatory:false, signed:true },
   ],
   terminals: [
-    { tid:"T-20014521", sn:"H50-AB-00014521", bucket:"Ardova-Prod",      installed:6, sync:"2m ago",  status:"ok" },
-    { tid:"T-20014522", sn:"H50-AB-00014522", bucket:"Ardova-Prod",      installed:6, sync:"5m ago",  status:"ok" },
-    { tid:"T-20018834", sn:"P70-GM-00018834", bucket:"Merchant-General", installed:5, sync:"11m ago", status:"opt" },
-    { tid:"T-20019001", sn:"P70-GM-00019001", bucket:"Merchant-General", installed:5, sync:"3m ago",  status:"ok" },
-    { tid:"T-20022714", sn:"H50-OS-00022714", bucket:"Osun-IGR",         installed:4, sync:"18m ago", status:"force" },
-    { tid:"T-20022891", sn:"H50-OS-00022891", bucket:"Osun-IGR",         installed:4, sync:"1h ago",  status:"force" },
-    { tid:"T-20031154", sn:"A90-HY-00031154", bucket:"Hypercity",        installed:5, sync:"9m ago",  status:"ok" },
-    { tid:"T-20031210", sn:"A90-HY-00031210", bucket:"Hypercity",        installed:5, sync:"22m ago", status:"opt" },
-    { tid:"T-20044301", sn:"H50-GB-00044301", bucket:"Greatbrand",       installed:3, sync:"6m ago",  status:"ok" },
+    // Status is now binary: "ok" (up to date) or "failed". sync = full date+time per design review.
+    { tid:"T-20014521", sn:"H50-AB-00014521", bucket:"Ardova-Prod",      installed:6, sync:"11 May 2026, 09:42am", status:"ok" },
+    { tid:"T-20014522", sn:"H50-AB-00014522", bucket:"Ardova-Prod",      installed:6, sync:"11 May 2026, 09:38am", status:"ok" },
+    { tid:"T-20018834", sn:"P70-GM-00018834", bucket:"Merchant-General", installed:5, sync:"11 May 2026, 09:32am", status:"ok" },
+    { tid:"T-20019001", sn:"P70-GM-00019001", bucket:"Merchant-General", installed:5, sync:"11 May 2026, 09:40am", status:"ok" },
+    { tid:"T-20022714", sn:"H50-OS-00022714", bucket:"Osun-IGR",         installed:4, sync:"11 May 2026, 09:25am", status:"failed" },
+    { tid:"T-20022891", sn:"H50-OS-00022891", bucket:"Osun-IGR",         installed:4, sync:"11 May 2026, 08:43am", status:"failed" },
+    { tid:"T-20031154", sn:"A90-HY-00031154", bucket:"Hypercity",        installed:5, sync:"11 May 2026, 09:34am", status:"ok" },
+    { tid:"T-20031210", sn:"A90-HY-00031210", bucket:"Hypercity",        installed:5, sync:"11 May 2026, 09:21am", status:"ok" },
+    { tid:"T-20044301", sn:"H50-GB-00044301", bucket:"Greatbrand",       installed:3, sync:"11 May 2026, 09:37am", status:"ok" },
   ],
   keyExchanges: [
     { tid:"T-20014521", pkg:"com.neo.core.pos",       code:420, decision:"optional",      ts:"14:12:03" },
@@ -213,9 +215,9 @@ function downloadCSV(filename, rows) {
 
 // ==================== BADGE HELPERS ====================
 function statusBadge(s) {
-  if (s==="ok")    return '<span class="badge success">Up to date</span>';
-  if (s==="opt")   return '<span class="badge warning">Optional update</span>';
-  if (s==="force") return '<span class="badge error">Force update required</span>';
+  // Per design review: only two terminal states — Up to date or Failed.
+  if (s==="ok")     return '<span class="badge success">Up to date</span>';
+  if (s==="failed") return '<span class="badge error">Failed</span>';
   return '<span class="badge neutral">Unknown</span>';
 }
 function decisionBadge(d) {
@@ -351,7 +353,7 @@ function screen2() {
         </div>
       </div>
       <table><thead><tr>
-        <th>App ID</th><th>App / Package</th><th>Category</th><th>Status</th><th>Created</th><th style="text-align:right">Actions</th>
+        <th>App ID</th><th>App / Package</th><th>Category</th><th>Created</th><th style="text-align:right">Actions</th>
       </tr></thead><tbody id="s2Body"></tbody></table>
       <div id="s2Pagination"></div>
     </div>`;
@@ -370,20 +372,17 @@ function renderApkTable(root) {
     return true;
   });
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px 0;color:var(--text-03);"><div style="font-size:14px;font-weight:500;color:var(--text-02);margin-bottom:4px;">No APKs match your filters</div><div style="font-size:12px;">Try a different category or search term.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px 0;color:var(--text-03);"><div style="font-size:14px;font-weight:500;color:var(--text-02);margin-bottom:4px;">No APKs match your filters</div><div style="font-size:12px;">Try a different category or search term.</div></td></tr>`;
   } else {
-    tbody.innerHTML = filtered.map(a => `<tr style="${a.deprecated?'opacity:.55;':''}">
+    // Per design review: Registry shows only View Versions + Edit. No Status, no Deprecate.
+    tbody.innerHTML = filtered.map(a => `<tr>
       <td><span class="td-main">${esc(a.id)}</span></td>
       <td><div class="td-main">${esc(a.name)}</div><div class="td-sub">${esc(a.pkg)} <span title="Package name is immutable for the APK lifetime" style="color:var(--text-03);font-size:10px;">🔒 locked</span></div></td>
       <td>${a.cat==="Pilot" ? `<span class="badge" style="background:#ece9ff;color:#534ab7;">⚑ Pilot</span>` : `<span class="badge plain">${esc(a.cat)}</span>`}</td>
-      <td>${a.deprecated ? '<span class="badge error">Deprecated</span>' : (a.mandatory ? '<span class="badge error">Mandatory</span>' : '<span class="badge neutral">Optional</span>')}</td>
       <td><span class="td-sub" style="margin-top:0">${a.created}</span></td>
       <td><div class="row-actions">
         <button class="link-btn" onclick="Store.selectedApkId='${a.id}';showScreen('s3')">View Versions</button>
-        <button class="btn btn-sm btn-ghost" onclick="openEditApkModal('${a.id}')" ${a.deprecated?'disabled':''}>Edit</button>
-        ${a.deprecated
-          ? `<span class="td-sub" style="margin-top:0;color:var(--error-fill);font-weight:500;">Deprecated</span>`
-          : `<button class="btn btn-sm btn-ghost" style="color:var(--error-fill)" onclick="deprecateApk('${a.id}')">Deprecate</button>`}
+        <button class="btn btn-sm btn-ghost" onclick="openEditApkModal('${a.id}')">Edit</button>
       </div></td>
     </tr>`).join("");
   }
@@ -423,10 +422,7 @@ function openRegisterModal() {
     <div class="input-group"><label>Package Name <span style="color:var(--text-03);font-weight:400">(unique, immutable)</span></label><input class="input" id="regPkg" placeholder="e.g. com.neo.core.pos" oninput="validateRegPkg(false)" onblur="validateRegPkg(true)" autocomplete="off" /><div id="regPkgHint" style="font-size:11px;color:var(--text-03);margin-top:4px;">Lower-case reverse-DNS format. This value is permanent.</div></div>
     <div class="input-group"><label>Category</label><select class="input" id="regCat">${cats.map(c=>`<option>${c}</option>`).join("")}</select></div>
     <div class="input-group"><label>App ID (auto-generated)</label><input class="input" value="${genId()}" disabled id="regId" /></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
-      <div><div style="font-size:13px;font-weight:500;color:var(--text-02)">Mark as Mandatory</div><div style="font-size:12px;color:var(--text-03)">Terminals will be forced to install latest version.</div></div>
-      <label class="toggle"><input type="checkbox" id="regMandatory" /><span class="slider"></span></label>
-    </div>`;
+    <div style="font-size:11px;color:var(--text-03);padding:6px 2px 0;">Mandatory / Optional is set per Version on upload — not at registry level.</div>`;
   const foot = `<button class="btn btn-tertiary" onclick="closeAllModals()">Cancel</button><button class="btn btn-primary" id="regSubmitBtn" onclick="submitRegisterApk()" disabled>Register APK</button>`;
   openModal("<h2>Register New APK</h2><p>Create a new APK entry in the Registry Service.</p>", body, foot);
   // Reset auto-gen id (preview only) and disable submit until valid
@@ -478,7 +474,8 @@ function submitRegisterApk() {
   Store.apks.push({
     id, name, pkg: pkg.toLowerCase(),
     cat: document.getElementById("regCat").value,
-    mandatory: document.getElementById("regMandatory").checked,
+    // Mandatory is now controlled per-Version on upload, not at APK level.
+    mandatory: false,
     deprecated: false,
     created: today()
   });
@@ -497,10 +494,7 @@ function openEditApkModal(id) {
     <div class="input-group"><label>App Name</label><input class="input" id="editName" value="${esc(a.name)}" /></div>
     <div class="input-group"><label>Package Name <span style="color:var(--text-03);font-weight:400">(locked)</span></label><div style="position:relative;"><input class="input" id="editPkg" value="${esc(a.pkg)}" disabled readonly style="cursor:not-allowed;background:#f4f4f4;color:var(--text-03);padding-right:36px;" title="Package names cannot be changed after registration"/><span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--text-03);pointer-events:none;font-size:14px;" title="Package names cannot be changed after registration">🔒</span></div><div style="font-size:11px;color:var(--text-03);margin-top:4px;">Package names cannot be changed after registration.</div></div>
     <div class="input-group"><label>Category</label><select class="input" id="editCat">${cats.map(c=>`<option ${c===a.cat?'selected':''}>${c}</option>`).join("")}</select></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
-      <div><div style="font-size:13px;font-weight:500;color:var(--text-02)">Mark as Mandatory</div></div>
-      <label class="toggle"><input type="checkbox" id="editMandatory" ${a.mandatory?'checked':''} /><span class="slider"></span></label>
-    </div>`;
+    <div style="font-size:11px;color:var(--text-03);padding:6px 2px 0;">Mandatory / Optional is set per Version on upload — not at registry level.</div>`;
   const foot = `<button class="btn btn-tertiary" onclick="closeAllModals()">Cancel</button><button class="btn btn-primary" onclick="submitEditApk('${id}')">Save Changes</button>`;
   openModal(`<h2>Edit APK</h2><p>${esc(a.id)} · ${esc(a.pkg)}</p>`, body, foot);
 }
@@ -508,9 +502,8 @@ function submitEditApk(id) {
   const a = Store.apks.find(x=>x.id===id);
   if (!a) return;
   a.name = document.getElementById("editName").value.trim() || a.name;
-  // packageName is immutable — never updated
+  // packageName is immutable — never updated. Mandatory is set per-Version, not here.
   a.cat = document.getElementById("editCat").value;
-  a.mandatory = document.getElementById("editMandatory").checked;
   closeAllModals();
   toast(`${a.name} updated`, "success");
   renderApkTable();
@@ -520,7 +513,9 @@ function submitEditApk(id) {
 function screen3() {
   const apk = Store.apks.find(a=>a.id===Store.selectedApkId) || Store.apks[0];
   const vers = Store.versions.filter(v=>v.apkId===apk.id);
-  const activeV = vers.find(v=>v.active);
+  // Multi-active rule: one Active per scope (General + each Bucket). Both can be Active simultaneously.
+  const activeGeneral = vers.find(v=>v.active && !v.bucket);
+  const activeBucketed = vers.filter(v=>v.active && v.bucket);
   SCREEN_META.s3.sub = `${apk.name} · ${apk.pkg}`;
 
   const el = document.createElement("section");
@@ -530,7 +525,7 @@ function screen3() {
       <div>
         <div style="font-size:13px;color:var(--text-03);"><a href="#" onclick="showScreen('s2');return false;">APK Registry</a> / ${esc(apk.name)}</div>
         <h1 style="margin-top:4px;">Version Management</h1>
-        <p>${esc(apk.pkg)} · ${esc(apk.cat)} · ${apk.mandatory?'Mandatory':'Optional'} · ${vers.length} versions</p>
+        <p>${esc(apk.pkg)} · ${esc(apk.cat)} · ${vers.length} versions${activeBucketed.length?` · <b style="color:#534ab7;">${activeBucketed.length} pilot bucket${activeBucketed.length===1?'':'s'} active</b>`:''}</p>
       </div>
       <div class="actions">
         <button class="btn btn-tertiary" onclick="showReleaseNotes()">View Release Notes</button>
@@ -541,7 +536,8 @@ function screen3() {
       </div>
     </div>
     ${apk.cat==="Pilot" ? `<div class="alert" style="background:#ece9ff;border-left:3px solid #534ab7;"><div class="icon" style="background:#534ab7;color:white;">⚑</div><div><div class="t" style="color:#3c3489;">Pilot APK · isolated from production rollout</div><div class="d">This APK is flagged as a pilot build. It is excluded from the New Rollout selector and will only be distributed to terminals explicitly assigned to a pilot bucket. Promote to a regular category to release fleet-wide.</div></div></div>` : ''}
-    ${activeV ? `<div class="alert info"><div class="icon">i</div><div><div class="t">Version ${activeV.name} is currently the Active version</div><div class="d">All terminals below the min supported version (${activeV.min}) will receive a Force Update decision at their next key exchange. Only one version per APK can be Active at a time.</div></div></div>` : ''}
+    ${activeGeneral ? `<div class="alert info"><div class="icon">i</div><div><div class="t">Version ${activeGeneral.name} is the Active General version</div><div class="d">Distributed fleet-wide to terminals NOT in a bucket. Terminals below min supported (${activeGeneral.min}) receive Force Update at next key exchange.</div></div></div>` : ''}
+    ${activeBucketed.length ? `<div class="alert" style="background:#ece9ff;border-left:3px solid #534ab7;"><div class="icon" style="background:#534ab7;color:white;">⚑</div><div><div class="t" style="color:#3c3489;">${activeBucketed.length} bucketed Active version${activeBucketed.length===1?'':'s'} (pilot scope)</div><div class="d">Key exchange checks bucket membership <b>first</b>: ${activeBucketed.map(v=>`<code>${esc(v.bucket)} → v${esc(v.name)}</code>`).join(' · ')}. Only terminals in these buckets receive the bucketed version; everyone else falls through to the General version.</div></div></div>` : ''}
     <div class="table-wrap">
       <div class="table-head">
         <h3>All Versions</h3>
@@ -552,7 +548,7 @@ function screen3() {
         </div>
       </div>
       <table><thead><tr>
-        <th>Version ID</th><th>Code</th><th>Name</th><th>Min Supported</th><th>Is Active</th><th>Is Deprecated</th><th>File Size</th><th>Created</th><th style="text-align:right">Actions</th>
+        <th>Version ID</th><th>Code</th><th>Name</th><th>Scope</th><th>Mandatory</th><th>Min Supported</th><th>Is Active</th><th>Is Deprecated</th><th>File Size</th><th>Created</th><th style="text-align:right">Actions</th>
       </tr></thead><tbody id="s3Body"></tbody></table>
       <div id="s3Pagination"></div>
     </div>`;
@@ -569,7 +565,10 @@ function renderVersionTable(root) {
   else if (f==="deprecated") vers = vers.filter(v=>v.deprecated);
   else if (f==="inactive") vers = vers.filter(v=>!v.active && !v.deprecated);
   tbody.innerHTML = vers.map(v => `<tr>
-    <td><span class="td-main">${v.vid}</span></td><td>${v.code}</td><td><span class="td-main">${v.name}</span></td><td>${v.min}</td>
+    <td><span class="td-main">${v.vid}</span></td><td>${v.code}</td><td><span class="td-main">${v.name}</span></td>
+    <td>${v.bucket ? `<span class="badge" style="background:#ece9ff;color:#534ab7;">⚑ ${esc(v.bucket)}</span>` : '<span class="badge plain">General</span>'}</td>
+    <td>${v.mandatory ? '<span class="badge error">Mandatory</span>' : '<span class="badge neutral">Optional</span>'}</td>
+    <td>${v.min}</td>
     <td>${v.active?'<span class="badge success">Active</span>':'<span class="badge neutral">Inactive</span>'}</td>
     <td>${v.deprecated?'<span class="badge error">Deprecated</span>':'<span class="badge plain">Live</span>'}</td>
     <td>${v.size}</td><td><span class="td-sub" style="margin-top:0">${v.created}</span></td>
@@ -585,12 +584,19 @@ function renderVersionTable(root) {
 function filterVersionTable() { renderVersionTable(); }
 function setActiveVersion(vid) {
   const v = Store.versions.find(x=>x.vid===vid);
-  confirm2("Set Active Version", `Set version <b>${v.name}</b> as the active version? The current active version will become inactive.`, () => {
-    Store.versions.forEach(x => { if (x.apkId === v.apkId) x.active = false; });
-    v.active = true;
-    toast(`Version ${v.name} is now the active version`, "success");
-    showScreen("s3");
-  });
+  if (!v) return;
+  const scopeLabel = v.bucket ? `bucket "${v.bucket}"` : "General (fleet-wide)";
+  confirm2("Set Active Version",
+    `Set version <b>${v.name}</b> as Active for <b>${scopeLabel}</b>?<br><br>The current Active version in this scope will be deactivated. Other scopes (General + other buckets) are unaffected — multiple versions can be Active across scopes.`,
+    () => {
+      // Deactivate only versions in the SAME scope (same apkId AND same bucket value)
+      Store.versions.forEach(x => {
+        if (x.apkId === v.apkId && (x.bucket || null) === (v.bucket || null)) x.active = false;
+      });
+      v.active = true;
+      toast(`Version ${v.name} is now Active for ${scopeLabel}`, "success");
+      showScreen("s3");
+    });
 }
 function deprecateVersion(vid) {
   const v = Store.versions.find(x=>x.vid===vid);
@@ -635,14 +641,37 @@ function openUploadModal() {
       <div class="input-group"><label>Version Name</label><input class="input" id="uplName" placeholder="e.g. 4.2.2" /></div>
     </div>
     <div class="input-group"><label>Min Supported Version</label><input class="input" id="uplMin" value="4.0.0" /><span class="hint">Terminals below this will receive Force Update.</span></div>
+    <div class="input-group"><label>Target Bucket / Category <span style="color:var(--text-03);font-weight:400;font-size:11px;">· choose <b>General</b> for fleet-wide release, or a specific bucket for piloting</span></label>
+      <select class="input" id="uplBucket">
+        <option value="">— General (fleet-wide, no bucket restriction) —</option>
+        ${Store.buckets.map(b=>`<option value="${esc(b.name)}">${esc(b.name)} · ${esc(b.product)} (${b.terminals} terminals)</option>`).join("")}
+      </select>
+      <span class="hint">Bucketed versions are only distributed to terminals in that bucket. Both a General version and a Bucket version can be Active at the same time.</span>
+    </div>
     <div class="input-group"><label>Release Notes</label><textarea class="input" rows="4" style="height:auto;padding:12px 16px;resize:vertical;" id="uplNotes" placeholder="What changed in this version?"></textarea></div>
-    <div id="uplAutoGen" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px;background:var(--base-02);border-radius:var(--r-md);font-size:12px;color:var(--text-03)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0 4px;border-top:1px solid var(--base-03);margin-top:4px;">
+      <div><div style="font-size:13px;font-weight:500;color:var(--text-02)">Mark this version as Mandatory</div><div style="font-size:12px;color:var(--text-03)">Terminals on a lower version will be forced to install. Mandatory is set per-version, not per-APK.</div></div>
+      <label class="toggle"><input type="checkbox" id="uplMandatory" /><span class="slider"></span></label>
+    </div>
+    <div id="uplAutoGen" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px;background:var(--base-02);border-radius:var(--r-md);font-size:12px;color:var(--text-03);margin-top:8px;">
       <div><b style="color:var(--text-01)">Auto-generated:</b></div><div></div>
       <div>SHA-256</div><div style="font-family:ui-monospace,monospace;color:var(--text-01);word-break:break-all;" id="uplSha">—</div>
       <div>Download URL</div><div style="font-family:ui-monospace,monospace;color:var(--text-01);" id="uplUrl">—</div>
-    </div>`;
-  const foot = `<button class="btn btn-tertiary" onclick="closeAllModals()">Cancel</button><button class="btn btn-primary" onclick="submitUploadVersion()">Upload & Sign</button>`;
+    </div>
+    <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;margin-top:12px;background:var(--warning-bg);border-radius:var(--r-md);cursor:pointer;">
+      <input type="checkbox" id="uplSigned" onchange="updateUploadBtnState()" style="margin-top:2px;" />
+      <div style="font-size:12px;color:var(--text-01);">
+        <b>I confirm this APK is signed.</b><br>
+        <span style="color:var(--text-03);">The APK must be signed by an authorized release key. Unsigned builds will be rejected by terminals during key exchange.</span>
+      </div>
+    </label>`;
+  const foot = `<button class="btn btn-tertiary" onclick="closeAllModals()">Cancel</button><button class="btn btn-primary" id="uplSubmitBtn" onclick="submitUploadVersion()" disabled>Upload</button>`;
   openModal(`<h2>Upload New Version</h2><p>${esc(apk.name)} · ${esc(apk.pkg)}</p>`, body, foot);
+}
+function updateUploadBtnState() {
+  const btn = document.getElementById("uplSubmitBtn");
+  const signed = document.getElementById("uplSigned")?.checked;
+  if (btn) btn.disabled = !signed;
 }
 // Generate a 64-char SHA256-style hex string
 function genSha256() {
@@ -684,37 +713,53 @@ function simulateFileSelect() {
   }, 200);
 }
 function submitUploadVersion() {
+  // Hard guard: Signed checkbox MUST be ticked. Button is gated, but double-check on submit.
+  if (!document.getElementById("uplSigned")?.checked) {
+    toast("You must confirm the APK is signed before uploading.", "error");
+    return;
+  }
   const codeRaw = document.getElementById("uplCode")?.value;
   const code = parseInt(codeRaw);
   const name = document.getElementById("uplName")?.value?.trim();
   const min  = document.getElementById("uplMin")?.value?.trim() || "4.0.0";
   const notes= document.getElementById("uplNotes")?.value?.trim() || "";
+  const bucket = document.getElementById("uplBucket")?.value || "";       // "" = General
+  const mandatory = document.getElementById("uplMandatory")?.checked || false;
   if (!code || !name) { toast("Please fill in Version Code and Version Name","error"); return; }
   const apk = Store.apks.find(a=>a.id===Store.selectedApkId) || Store.apks[0];
-  // Version Code MUST be greater than every existing version code for this APK
-  const existing = Store.versions.filter(v=>v.apkId===apk.id);
+  // Version Code MUST be greater than every existing version code for this APK *in the same scope*
+  // (General vs Bucket are evaluated independently, since both can be Active simultaneously)
+  const scope = bucket || "__general__";
+  const existing = Store.versions.filter(v => v.apkId===apk.id && (v.bucket||"__general__")===scope);
   const maxCode = existing.reduce((m,v) => Math.max(m, v.code), 0);
   if (existing.length && code <= maxCode) {
-    toast(`Version code must be greater than ${maxCode} (current highest for ${apk.name})`, "error");
+    toast(`Version code must be greater than ${maxCode} (current highest in ${bucket||'General'} scope)`, "error");
     const inp = document.getElementById("uplCode");
     if (inp) { inp.style.borderColor = "var(--error-fill)"; inp.focus(); }
     return;
   }
-  // Get auto-generated artifacts (or generate now if user didn't trigger upload)
   const sha = document.getElementById("uplSha")?.dataset?.full || genSha256();
   const url = `https://cdn.apkmanager.io/${apk.pkg}/${name}.apk`;
-  // First version → auto-active. Otherwise also active (newest), deactivate previous.
-  Store.versions.forEach(v => { if (v.apkId===apk.id) v.active = false; });
-  const vid = `V-${name.replace(/\./g,'')}`;
+  // Multi-active rule per design review:
+  // - A General-scope version and a Bucket-scope version may both be Active for the same APK.
+  // - Within the same scope, only one version can be Active. So deactivate previous in *this* scope only.
+  Store.versions.forEach(v => {
+    if (v.apkId===apk.id && (v.bucket||"__general__")===scope) v.active = false;
+  });
+  const vid = `V-${name.replace(/\./g,'')}${bucket ? '-'+bucket.replace(/[^A-Za-z0-9]/g,'').slice(0,6) : ''}`;
   Store.versions.unshift({
     vid, code, name, min, active:true, deprecated:false,
     size: (25+Math.random()*5).toFixed(1)+" MB",
     created: today(), apkId: apk.id, notes,
-    sha256: sha, downloadUrl: url
+    sha256: sha, downloadUrl: url,
+    bucket: bucket || null,         // null = General (fleet-wide)
+    mandatory,
+    signed: true                    // verified by checkbox on submit
   });
-  addLog("ok", "—", apk.pkg, `Version ${name} (code ${code}) uploaded · sha256 verified · set Active`);
+  const scopeLabel = bucket ? `bucket "${bucket}"` : "General (fleet-wide)";
+  addLog("ok", "—", apk.pkg, `Version ${name} (code ${code}) uploaded · ${scopeLabel} · ${mandatory?'Mandatory':'Optional'} · sha256 verified`);
   closeAllModals();
-  toast(`Version ${name} uploaded and set as Active`, "success");
+  toast(`Version ${name} uploaded and set Active for ${scopeLabel}`, "success");
   if (currentScreen === "s3") showScreen("s3");
 }
 
@@ -722,27 +767,20 @@ function submitUploadVersion() {
 function screen4() {
   const el = document.createElement("section");
   el.className = "screen"; el.id = "s4";
-  const okCount = Store.terminals.filter(t=>t.status==="ok").length;
-  const optCount = Store.terminals.filter(t=>t.status==="opt").length;
-  const forceCount = Store.terminals.filter(t=>t.status==="force").length;
+  // Status is binary per design review: ok = Up to date, failed = Failed.
   el.innerHTML = `
     <div class="page-head">
-      <div><h1>Terminal Management</h1><p>2,041 terminals on file · 1,924 updated (last 24h) · 343 require attention</p></div>
-      <div class="actions">
-        <button class="btn btn-tertiary" onclick="exportTerminalsCSV()">Export</button>
-        <button class="btn btn-primary" onclick="forceSyncAll()">Force Sync All</button>
-      </div>
+      <div><h1>Terminal Management</h1><p>2,041 terminals on file · 1,924 updated (last 24h) · status reconciled via key exchange</p></div>
     </div>
-    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
-      <div class="stat-card"><div class="label">Up to date</div><div class="value" style="color:#038053">1,698</div><div><span class="delta up">83.2% of fleet</span></div></div>
-      <div class="stat-card"><div class="label">Optional updates</div><div class="value" style="color:#7a5a00">252</div><div><span class="badge warning">12.3%</span></div></div>
-      <div class="stat-card"><div class="label">Force update required</div><div class="value" style="color:#b5151a">91</div><div><span class="badge error">4.5%</span></div></div>
+    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);">
+      <div class="stat-card"><div class="label">Up to date</div><div class="value" style="color:#038053">1,924</div><div><span class="delta up">94.3% of fleet</span></div></div>
+      <div class="stat-card"><div class="label">Failed</div><div class="value" style="color:#b5151a">117</div><div><span class="badge error">5.7% · investigate in Monitoring</span></div></div>
     </div>
     <div class="table-wrap">
       <div class="table-head">
         <h3>Terminals</h3>
         <div class="filters">
-          <select class="input" style="min-width:160px;" id="s4StatusFilter" onchange="filterTerminals()"><option value="">All statuses</option><option value="ok">Up to date</option><option value="opt">Optional</option><option value="force">Force</option></select>
+          <select class="input" style="min-width:160px;" id="s4StatusFilter" onchange="filterTerminals()"><option value="">All statuses</option><option value="ok">Up to date</option><option value="failed">Failed</option></select>
           <select class="input" style="min-width:160px;" id="s4BucketFilter" onchange="filterTerminals()"><option value="">All buckets</option>${[...new Set(Store.terminals.map(t=>t.bucket))].map(b=>`<option>${b}</option>`).join("")}</select>
           <input class="input" placeholder="Search TID / Serial…" style="min-width:220px;" id="s4Search" oninput="filterTerminals()" />
         </div>
@@ -777,7 +815,6 @@ function renderTerminalTable(root) {
       <td>${statusBadge(t.status)}</td>
       <td><div class="row-actions">
         <button class="link-btn" onclick="toggleTerminalExpand(this,'${t.tid}')">Expand</button>
-        <button class="btn btn-sm btn-ghost" onclick="forceSyncTerminal('${t.tid}',this)">Force Sync</button>
       </div></td>
     </tr>
     <tr class="detail-row" id="detail-${t.tid}">
@@ -1357,25 +1394,32 @@ function showScreen(id) {
 //   versionCode < latest, ≥ minSupp    → optional      (Optional Update)
 //   packageName not registered         → force-install (Force Install)
 function simulateKeyExchange() {
-  const tid = randItem(Store.terminals).tid;
-  // 15% chance of an unknown package → force-install
+  // Per design review: key exchange checks BUCKET MEMBERSHIP FIRST.
+  // 1. If terminal is in a bucket, use that bucket's Active version (per-bucket scope).
+  // 2. Otherwise fall through to the General Active version.
+  const terminal = randItem(Store.terminals);
+  const tid = terminal.tid;
   let pkg, code, decision;
-  if (Math.random() < 0.15) {
+
+  if (Math.random() < 0.12) {
+    // Unknown package → force-install
     pkg = `com.unknown.app${Math.floor(Math.random()*99)}`;
     code = Math.floor(Math.random()*500)+1;
     decision = "force-install";
   } else {
     const apk = randItem(Store.apks.filter(a=>!a.deprecated));
     pkg = apk.pkg;
-    const versions = Store.versions.filter(v=>v.apkId===apk.id);
-    const active = versions.find(v=>v.active);
+    // Resolve which version to compare against — bucket first, then general
+    const inBucket = Store.versions.find(v =>
+      v.apkId === apk.id && v.active && v.bucket && v.bucket === terminal.bucket);
+    const general  = Store.versions.find(v =>
+      v.apkId === apk.id && v.active && !v.bucket);
+    const active = inBucket || general;
     if (!active) {
-      // No active version → treat as force-install
       code = Math.floor(Math.random()*500)+1;
       decision = "force-install";
     } else {
       const minCode = parseInt(active.min.replace(/\./g,''),10) || 0;
-      // Generate a plausible reported version code
       const candidates = [active.code, active.code, Math.max(0, active.code-2), Math.max(0, active.code-20), Math.max(0, minCode-5)];
       code = randItem(candidates);
       if (code === active.code)        decision = "allow";
@@ -1416,13 +1460,8 @@ setInterval(() => {
   if (el) el.textContent = Store.pendingUpdates;
 }, 10000);
 
-// Terminal sync times — update every 30s
-setInterval(() => {
-  Store.terminals.forEach(t => {
-    const min = parseInt(t.sync) || 1;
-    t.sync = (min+1) + "m ago";
-  });
-}, 30000);
+// Terminal sync times are absolute date+time strings now (per design review).
+// They no longer tick locally — they reflect the last successful key exchange.
 
 // ==================== INIT ====================
 document.querySelectorAll(".nav-item").forEach(n => {
@@ -1440,7 +1479,7 @@ Object.assign(window, {
   showScreen, openRegisterModal, openUploadModal, openEditApkModal, deprecateApk,
   submitRegisterApk, submitEditApk, exportApksCSV, filterApkTable, validateRegPkg,
   filterVersionTable, setActiveVersion, deprecateVersion, showReleaseNotes, showVersionNotes,
-  submitUploadVersion, simulateFileSelect,
+  submitUploadVersion, simulateFileSelect, updateUploadBtnState,
   filterTerminals, toggleTerminalExpand, forceSyncTerminal, forceSyncAll, exportTerminalsCSV,
   renderKETable, viewPayload, copyPayload, toggleLiveTail, toggleS5Filter,
   expandRollout, pauseRollout, resumeRollout, rollbackRollout,
