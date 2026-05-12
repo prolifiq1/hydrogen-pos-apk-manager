@@ -210,7 +210,10 @@ function openModal(titleHtml, bodyHtml, footHtml) {
   document.body.appendChild(bd);
   return bd;
 }
-function closeAllModals() { document.querySelectorAll(".modal-backdrop, .confirm-backdrop, .search-overlay").forEach(e => e.remove()); }
+function closeAllModals() {
+  document.querySelectorAll(".modal-backdrop, .confirm-backdrop, .search-overlay").forEach(e => e.remove());
+  if (window.__avbTicker) { clearInterval(window.__avbTicker); window.__avbTicker = null; }
+}
 
 // ==================== GLOBAL SEARCH ====================
 function openGlobalSearch() {
@@ -309,7 +312,32 @@ function screen1() {
     { col:"p", ch:"⇋", t:'<b>KEY EXCHANGE</b> · T-20018834 → Allow (com.neo.core.pos v4.2.1)', time:"38 min ago", screen:"s5", tag:"Handshake" },
     { col:"b", ch:"+", t:'<b>REGISTRY</b> · Firmware Companion registered (com.neo.fw.companion)', time:"1 hr ago", screen:"s2", tag:"Registry" },
   ];
-  const barRow = (name,cls,pct,count) => `<div class="bar-row"><div class="name">${name}</div><div class="track"><div class="bar ${cls}" style="width:${pct}%"></div></div><div class="count">${count}</div></div>`;
+  // Bar row variant: black = active terminals, grey = pending. Tooltip on hover.
+  const apkBarRow = (name, version, active, pending) => {
+    const total = active + pending;
+    const activePct = total ? Math.round((active/total)*100) : 0;
+    return `<div class="bar-row" title="Active: ${active.toLocaleString()} · Pending: ${pending.toLocaleString()}">
+      <div class="name">${esc(name)} <span style="color:var(--text-03);font-size:11px;">${esc(version)}</span></div>
+      <div class="track" style="background:#d9d6cf;position:relative;cursor:help;">
+        <div class="bar" style="background:#0a0a0a;width:${activePct}%;height:100%;position:absolute;left:0;top:0;border-radius:inherit;"
+             title="${active.toLocaleString()} active terminals on this version"></div>
+        <div class="bar" style="background:#9a978f;width:${100-activePct}%;height:100%;position:absolute;right:0;top:0;border-radius:inherit;"
+             title="${pending.toLocaleString()} terminals pending this version"></div>
+      </div>
+      <div class="count" style="font-variant-numeric:tabular-nums;"><b style="color:#0a0a0a">${active.toLocaleString()}</b> <span style="color:var(--text-03)">/ ${pending.toLocaleString()}</span></div>
+    </div>`;
+  };
+  // Build distribution rows for every APK that has an active version
+  const activeApks = Store.apks
+    .filter(a => Store.versions.some(v => v.apkId === a.id && v.active))
+    .map(a => {
+      const v = Store.versions.find(x => x.apkId === a.id && x.active);
+      // Simulated active/pending split — in production this comes from terminal_apk_installs
+      const fleet = Math.floor(80 + Math.random()*1500);
+      const activeTerminals = Math.floor(fleet * (0.55 + Math.random()*0.4));
+      const pendingTerminals = fleet - activeTerminals;
+      return { name: a.name, version: 'v'+v.name, active: activeTerminals, pending: pendingTerminals };
+    });
 
   el.innerHTML = `
     <div class="page-head">
@@ -323,42 +351,24 @@ function screen1() {
         </button>
       </div>
     </div>
-    <div class="stat-grid">
-      <!-- ACTIVE VERSIONS — primary card, with Pending Updates nested as a sub-stat -->
-      <div class="stat-card" style="grid-column:span 2;">
+    <div class="stat-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+      <div class="stat-card" style="cursor:pointer;min-height:140px;" onclick="openActiveVersionsBreakdown()" title="Click for terminal breakdown">
         <div class="label">Active Versions <div class="stat-icon g">●</div></div>
         <div class="value">${Store.versions.filter(v=>v.active).length}</div>
-        <div style="display:flex;gap:24px;margin-top:14px;padding-top:14px;border-top:1px solid var(--base-03);">
-          <div>
-            <div style="font-size:11px;color:var(--text-03);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Pending Updates</div>
-            <div style="font-size:20px;font-weight:600;color:#b5151a;margin-top:2px;" id="pendingCount">${Store.pendingUpdates}</div>
-            <div style="font-size:11px;color:var(--text-03);margin-top:2px;">terminals awaiting upgrade</div>
-          </div>
-          <div>
-            <div style="font-size:11px;color:var(--text-03);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Pilot Versions</div>
-            <div style="font-size:20px;font-weight:600;color:var(--accent-default);margin-top:2px;">${Store.versions.filter(v=>v.active&&Store.apks.find(a=>a.id===v.apkId)?.cat==="Pilot").length}</div>
-            <div style="font-size:11px;color:var(--text-03);margin-top:2px;">isolated from prod rollout</div>
-          </div>
-          <div>
-            <div style="font-size:11px;color:var(--text-03);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Deprecated</div>
-            <div style="font-size:20px;font-weight:600;color:var(--text-03);margin-top:2px;">${Store.versions.filter(v=>v.deprecated).length}</div>
-            <div style="font-size:11px;color:var(--text-03);margin-top:2px;">versions phased out</div>
-          </div>
-        </div>
+        <div><span class="delta up">click for live terminal breakdown →</span></div>
       </div>
-      <div class="stat-card"><div class="label">Total APKs <div class="stat-icon y">●</div></div><div class="value">${Store.apks.length}</div><div><span class="delta up">▲ 3 this month · register-once</span></div></div>
-      <div class="stat-card"><div class="label">Updated Terminals <span style="font-size:10px;color:var(--text-03);font-weight:500;margin-left:4px;">(last 24h)</span> <div class="stat-icon b">●</div></div><div class="value">1,924</div><div><span class="delta up">▲ 94.3% on latest</span><div style="font-size:10px;color:var(--text-03);margin-top:2px;">transacted within 24 hr</div></div></div>
+      <div class="stat-card" style="min-height:140px;">
+        <div class="label">Total APKs <div class="stat-icon y">●</div></div>
+        <div class="value">${Store.apks.length}</div>
+        <div><span class="delta up">▲ register-once · ${Store.apks.filter(a=>!a.deprecated).length} live</span></div>
+      </div>
     </div>
     <div class="grid-2">
       <div class="card">
-        <div class="card-head"><div><h3>Version distribution across terminals</h3><div class="sub">Top 5 APKs by install count · Live</div></div></div>
+        <div class="card-head"><div><h3>APKs with active versions</h3><div class="sub">Hover any bar — <b style="color:#0a0a0a">black</b> = terminals on the active version, <b style="color:#9a978f">grey</b> = pending upgrade</div></div></div>
         <div class="card-body">
           <div class="chart">
-            ${barRow("Neo Core POS 4.2.1","b1",72,"1,486")}
-            ${barRow("Neo Core POS 4.2.0","b2",18,"371")}
-            ${barRow("Ardova Fuel 3.1.0","b3",52,"312")}
-            ${barRow("Osun IGR 1.3.0","b4",46,"184")}
-            ${barRow("Hypercity 2.0.0","b5",24,"96")}
+            ${activeApks.map(r => apkBarRow(r.name, r.version, r.active, r.pending)).join("")}
           </div>
         </div>
       </div>
@@ -374,6 +384,43 @@ function screen1() {
   return el;
 }
 
+// Active-Versions click → terminal breakdown popup (updated + pending, live)
+function openActiveVersionsBreakdown() {
+  const activeCount = Store.versions.filter(v=>v.active).length;
+  const updated = 1924;
+  const pending = Store.pendingUpdates;
+  const body = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px;">
+      <div style="padding:18px;background:var(--success-bg);border-radius:var(--r-md);">
+        <div style="font-size:11px;color:#04663f;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Updated Terminals</div>
+        <div style="font-size:30px;font-weight:600;color:#038053;margin-top:6px;line-height:1;" id="avbUpdated">${updated.toLocaleString()}</div>
+        <div style="font-size:11px;color:#04663f;margin-top:4px;">live · last 24 h</div>
+      </div>
+      <div style="padding:18px;background:var(--error-bg);border-radius:var(--r-md);">
+        <div style="font-size:11px;color:#791F1F;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Pending Updates</div>
+        <div style="font-size:30px;font-weight:600;color:#b5151a;margin-top:6px;line-height:1;" id="avbPending">${pending.toLocaleString()}</div>
+        <div style="font-size:11px;color:#791F1F;margin-top:4px;">live · auto-refresh</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text-03);padding:10px 12px;background:var(--base-02);border-radius:var(--r-md);">
+      <b style="color:var(--text-01);">${activeCount} active versions</b> are distributed across the fleet. Updated terminals have transacted within the last 24 hours on the active version for their scope (Main or pilot bucket). Pending terminals will receive their decision at the next key exchange.
+    </div>`;
+  openModal(`<h2>Active Versions · Live Terminal Breakdown</h2><p>Real-time view of fleet state</p>`, body,
+    `<button class="btn btn-primary" onclick="closeAllModals()">Close</button>`);
+  // Live-tick: every 2s, jitter the counts to simulate streaming telemetry
+  if (window.__avbTicker) clearInterval(window.__avbTicker);
+  window.__avbTicker = setInterval(() => {
+    const u = document.getElementById("avbUpdated");
+    const p = document.getElementById("avbPending");
+    if (!u || !p) { clearInterval(window.__avbTicker); return; }
+    const drift = Math.floor(Math.random()*7) - 3;
+    Store.pendingUpdates = Math.max(280, Store.pendingUpdates + drift);
+    const updatedNow = 1924 - drift;
+    u.textContent = updatedNow.toLocaleString();
+    p.textContent = Store.pendingUpdates.toLocaleString();
+  }, 2000);
+}
+
 // ==================== SCREEN 2: APK REGISTRY ====================
 function screen2() {
   const el = document.createElement("section");
@@ -382,7 +429,6 @@ function screen2() {
     <div class="page-head">
       <div><h1>APK Registry</h1><p>${Store.apks.length} applications registered</p></div>
       <div class="actions">
-        <button class="btn btn-tertiary" onclick="exportApksCSV()">Export CSV</button>
         <button class="btn btn-primary" onclick="openRegisterModal()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
           Register New APK
@@ -585,7 +631,7 @@ function screen3() {
       </div>
     </div>
     ${apk.cat==="Pilot" ? `<div class="alert" style="background:#ece9ff;border-left:3px solid #534ab7;"><div class="icon" style="background:#534ab7;color:white;">⚑</div><div><div class="t" style="color:#3c3489;">Pilot APK · isolated from production rollout</div><div class="d">This APK is flagged as a pilot build. It is excluded from the New Rollout selector and will only be distributed to terminals explicitly assigned to a pilot bucket. Promote to a regular category to release fleet-wide.</div></div></div>` : ''}
-    ${activeGeneral ? `<div class="alert info"><div class="icon">i</div><div><div class="t">Version ${activeGeneral.name} is the Active General version</div><div class="d">Distributed fleet-wide to terminals NOT in a bucket. Terminals below min supported (${activeGeneral.min}) receive Force Update at next key exchange.</div></div></div>` : ''}
+    ${activeGeneral ? `<div class="alert info"><div class="icon">i</div><div><div class="t">Version ${activeGeneral.name} is the Active <b>Main</b> version</div><div class="d">Distributed fleet-wide to terminals NOT in a pilot label. Terminals below min supported (${activeGeneral.min}) receive Force Update at next key exchange.</div></div></div>` : ''}
     ${activeBucketed.length ? `<div class="alert" style="background:#ece9ff;border-left:3px solid #534ab7;"><div class="icon" style="background:#534ab7;color:white;">⚑</div><div><div class="t" style="color:#3c3489;">${activeBucketed.length} bucketed Active version${activeBucketed.length===1?'':'s'} (pilot scope)</div><div class="d">Key exchange checks bucket membership <b>first</b>: ${activeBucketed.map(v=>`<code>${esc(v.bucket)} → v${esc(v.name)}</code>`).join(' · ')}. Only terminals in these buckets receive the bucketed version; everyone else falls through to the General version.</div></div></div>` : ''}
     <div class="table-wrap">
       <div class="table-head">
@@ -597,7 +643,7 @@ function screen3() {
         </div>
       </div>
       <table><thead><tr>
-        <th>Version ID</th><th>Code</th><th>Name</th><th>Scope</th><th>Mandatory</th><th>Min Supported</th><th>Is Active</th><th>Is Deprecated</th><th>File Size</th><th>Created</th><th style="text-align:right">Actions</th>
+        <th>Version ID</th><th>Code</th><th>Name</th><th>Label</th><th>Min Supported</th><th>Is Active</th><th>File Size</th><th>Created</th><th style="text-align:right">Actions</th>
       </tr></thead><tbody id="s3Body"></tbody></table>
       <div id="s3Pagination"></div>
     </div>`;
@@ -613,18 +659,16 @@ function renderVersionTable(root) {
   if (f==="active") vers = vers.filter(v=>v.active);
   else if (f==="deprecated") vers = vers.filter(v=>v.deprecated);
   else if (f==="inactive") vers = vers.filter(v=>!v.active && !v.deprecated);
-  tbody.innerHTML = vers.map(v => `<tr>
+  tbody.innerHTML = vers.map(v => `<tr style="${v.deprecated?'opacity:.5;':''}">
     <td><span class="td-main">${v.vid}</span></td><td>${v.code}</td><td><span class="td-main">${v.name}</span></td>
-    <td>${v.bucket ? `<span class="badge" style="background:#ece9ff;color:#534ab7;">⚑ ${esc(v.bucket)}</span>` : '<span class="badge plain">General</span>'}</td>
-    <td>${v.mandatory ? '<span class="badge error">Mandatory</span>' : '<span class="badge neutral">Optional</span>'}</td>
+    <td>${v.bucket ? `<span class="badge" style="background:#ece9ff;color:#534ab7;">⚑ ${esc(v.bucket)}</span>` : '<span class="badge plain">Main</span>'}</td>
     <td>${v.min}</td>
-    <td>${v.active?'<span class="badge success">Active</span>':'<span class="badge neutral">Inactive</span>'}</td>
-    <td>${v.deprecated?'<span class="badge error">Deprecated</span>':'<span class="badge plain">Live</span>'}</td>
+    <td>${v.deprecated ? '<span class="badge error">Deprecated</span>' : (v.active ? '<span class="badge success">Active</span>' : '<span class="badge neutral">Inactive</span>')}</td>
     <td>${v.size}</td><td><span class="td-sub" style="margin-top:0">${v.created}</span></td>
     <td><div class="row-actions">
       ${!v.active && !v.deprecated ? `<button class="btn btn-sm btn-tertiary" onclick="setActiveVersion('${v.vid}')">Set Active</button>` : ''}
       <button class="btn btn-sm btn-ghost" onclick="showVersionNotes('${v.vid}')">Notes</button>
-      ${!v.deprecated ? `<button class="btn btn-sm btn-ghost" style="color:var(--error-fill)" onclick="deprecateVersion('${v.vid}')">Deprecate</button>` : ''}
+      ${v.active && !v.deprecated ? `<button class="btn btn-sm btn-ghost" style="color:var(--error-fill)" onclick="deprecateVersion('${v.vid}')">Deprecate</button>` : ''}
     </div></td>
   </tr>`).join("");
   const pag = (root||document).querySelector("#s3Pagination");
@@ -634,9 +678,9 @@ function filterVersionTable() { renderVersionTable(); }
 function setActiveVersion(vid) {
   const v = Store.versions.find(x=>x.vid===vid);
   if (!v) return;
-  const scopeLabel = v.bucket ? `bucket "${v.bucket}"` : "General (fleet-wide)";
+  const scopeLabel = v.bucket ? `label "${v.bucket}"` : "Main (fleet-wide)";
   confirm2("Set Active Version",
-    `Set version <b>${v.name}</b> as Active for <b>${scopeLabel}</b>?<br><br>The current Active version in this scope will be deactivated. Other scopes (General + other buckets) are unaffected — multiple versions can be Active across scopes.`,
+    `Set version <b>${v.name}</b> as Active for <b>${scopeLabel}</b>?<br><br>The current Active version in this label will be deactivated. Other labels (Main + pilot buckets) are unaffected — multiple versions can be Active across labels.`,
     () => {
       // Deactivate only versions in the SAME scope (same apkId AND same bucket value)
       Store.versions.forEach(x => {
@@ -670,7 +714,15 @@ function showVersionNotes(vid) {
 // ==================== UPLOAD VERSION MODAL ====================
 function openUploadModal() {
   const apk = Store.apks.find(a=>a.id===Store.selectedApkId) || Store.apks[0];
+  // Label first per design review. Auto-fills computed from current scope.
   const body = `
+    <div class="input-group"><label>Label <span style="color:var(--text-03);font-weight:400;font-size:11px;">· Main = fleet-wide release · pilot label = bucket-scoped</span></label>
+      <select class="input" id="uplBucket" onchange="recomputeUploadAutofill()">
+        <option value="">Main (fleet-wide, no bucket restriction)</option>
+        ${Store.buckets.map(b=>`<option value="${esc(b.name)}">${esc(b.name)} · ${esc(b.product)} (${b.terminals} terminals)</option>`).join("")}
+      </select>
+      <span class="hint">Both a Main version and a pilot-label version can be Active at the same time. Selecting a Label recalculates Version Code and Min Supported below.</span>
+    </div>
     <div class="input-group"><label>APK File</label>
       <div class="drop-zone" id="uploadDZ" onclick="simulateFileSelect()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();simulateFileSelect()">
         <div class="dz-icon">📦</div>
@@ -686,20 +738,13 @@ function openUploadModal() {
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-      <div class="input-group"><label>Version Code</label><input class="input" id="uplCode" placeholder="e.g. 422" /></div>
+      <div class="input-group"><label>Version Code <span style="color:var(--text-03);font-weight:400;font-size:11px;">· auto</span></label><input class="input" id="uplCode" disabled readonly style="background:#f4f4f4;color:var(--text-02);cursor:not-allowed;" /><span class="hint">Auto-incremented from the highest existing code for this Label. Not editable.</span></div>
       <div class="input-group"><label>Version Name</label><input class="input" id="uplName" placeholder="e.g. 4.2.2" /></div>
     </div>
-    <div class="input-group"><label>Min Supported Version</label><input class="input" id="uplMin" value="4.0.0" /><span class="hint">Terminals below this will receive Force Update.</span></div>
-    <div class="input-group"><label>Target Bucket / Category <span style="color:var(--text-03);font-weight:400;font-size:11px;">· choose <b>General</b> for fleet-wide release, or a specific bucket for piloting</span></label>
-      <select class="input" id="uplBucket">
-        <option value="">— General (fleet-wide, no bucket restriction) —</option>
-        ${Store.buckets.map(b=>`<option value="${esc(b.name)}">${esc(b.name)} · ${esc(b.product)} (${b.terminals} terminals)</option>`).join("")}
-      </select>
-      <span class="hint">Bucketed versions are only distributed to terminals in that bucket. Both a General version and a Bucket version can be Active at the same time.</span>
-    </div>
+    <div class="input-group"><label>Min Supported Version <span style="color:var(--text-03);font-weight:400;font-size:11px;">· auto</span></label><input class="input" id="uplMin" disabled readonly style="background:#f4f4f4;color:var(--text-02);cursor:not-allowed;" /><span class="hint">Set automatically from the current Active version in this Label. Terminals below this receive Force Update. Not editable.</span></div>
     <div class="input-group"><label>Release Notes</label><textarea class="input" rows="4" style="height:auto;padding:12px 16px;resize:vertical;" id="uplNotes" placeholder="What changed in this version?"></textarea></div>
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0 4px;border-top:1px solid var(--base-03);margin-top:4px;">
-      <div><div style="font-size:13px;font-weight:500;color:var(--text-02)">Mark this version as Mandatory</div><div style="font-size:12px;color:var(--text-03)">Terminals on a lower version will be forced to install. Mandatory is set per-version, not per-APK.</div></div>
+      <div><div style="font-size:13px;font-weight:500;color:var(--text-02)">Mark this version as Mandatory</div><div style="font-size:12px;color:var(--text-03)">Terminals on a lower version will be forced to install. Set per-version.</div></div>
       <label class="toggle"><input type="checkbox" id="uplMandatory" /><span class="slider"></span></label>
     </div>
     <div id="uplAutoGen" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px;background:var(--base-02);border-radius:var(--r-md);font-size:12px;color:var(--text-03);margin-top:8px;">
@@ -716,6 +761,22 @@ function openUploadModal() {
     </label>`;
   const foot = `<button class="btn btn-tertiary" onclick="closeAllModals()">Cancel</button><button class="btn btn-primary" id="uplSubmitBtn" onclick="submitUploadVersion()" disabled>Upload</button>`;
   openModal(`<h2>Upload New Version</h2><p>${esc(apk.name)} · ${esc(apk.pkg)}</p>`, body, foot);
+  recomputeUploadAutofill();  // seed Main values on first open
+}
+function recomputeUploadAutofill() {
+  const apk = Store.apks.find(a=>a.id===Store.selectedApkId) || Store.apks[0];
+  const bucket = document.getElementById("uplBucket")?.value || null;
+  const inScope = Store.versions.filter(v => v.apkId===apk.id && (v.bucket||null)===(bucket||null));
+  const active  = inScope.find(v => v.active);
+  const maxCode = inScope.reduce((m,v)=>Math.max(m, v.code), 0);
+  const nextCode = maxCode ? maxCode + 1 : 100;
+  // Min supported: current active version name in this scope (so the new release floors at it).
+  // If no prior version, default to "1.0.0".
+  const nextMin  = active?.name || (inScope[0]?.name || "1.0.0");
+  const codeEl = document.getElementById("uplCode");
+  const minEl  = document.getElementById("uplMin");
+  if (codeEl) codeEl.value = String(nextCode);
+  if (minEl)  minEl.value  = nextMin;
 }
 function updateUploadBtnState() {
   const btn = document.getElementById("uplSubmitBtn");
@@ -922,11 +983,10 @@ function screen5() {
         <button class="btn btn-primary" id="s5LiveBtn" onclick="toggleLiveTail()">${Store.liveTailActive?'Stop Live Tail':'Live Tail'}</button>
       </div>
     </div>
-    <div class="stat-grid">
-      <div class="stat-card"><div class="label">Allow decisions</div><div class="value">2,184</div></div>
-      <div class="stat-card"><div class="label">Optional updates</div><div class="value">312</div></div>
-      <div class="stat-card"><div class="label">Force updates</div><div class="value">91</div></div>
-      <div class="stat-card"><div class="label">Force installs</div><div class="value">14</div></div>
+    <div class="stat-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+      <div class="stat-card"><div class="label">Allow decisions <div class="stat-icon g">●</div></div><div class="value">2,184</div></div>
+      <div class="stat-card"><div class="label">Pending Updates <div class="stat-icon y">●</div></div><div class="value">312</div></div>
+      <div class="stat-card"><div class="label">Force Updates <div class="stat-icon r">●</div></div><div class="value">91</div></div>
     </div>
     <div class="table-wrap">
       <div class="table-head">
@@ -937,7 +997,7 @@ function screen5() {
         </div>
       </div>
       <table><thead><tr>
-        <th>Terminal ID</th><th>Package</th><th>Version Sent</th><th>Timestamp</th><th style="text-align:right">Payload</th>
+        <th>Terminal ID</th><th>Package</th><th>Version Sent</th><th>Decision</th><th>Timestamp</th><th style="text-align:right">Payload</th>
       </tr></thead><tbody id="s5Body"></tbody></table>
       <div id="s5Pagination"></div>
     </div>`;
@@ -954,12 +1014,12 @@ function renderKETable(root) {
     if (q && !k.tid.toLowerCase().includes(q) && !k.pkg.toLowerCase().includes(q)) return false;
     return true;
   });
-  // Decision is encoded as a left border tint on the row (no separate column — redundant per design review)
-  const tint = { allow:"#1d9e75", optional:"#7a5a00", force:"#b5151a", "force-install":"#534ab7" };
-  tbody.innerHTML = filtered.slice(0,20).map(k => `<tr style="border-left:3px solid ${tint[k.decision]||'#ccc'};" title="${k.decision}">
-    <td style="padding-left:12px;"><span class="td-main">${k.tid}</span></td>
+  // Decision restored as a dedicated column (badge) per latest design review
+  tbody.innerHTML = filtered.slice(0,20).map(k => `<tr>
+    <td><span class="td-main">${k.tid}</span></td>
     <td><span class="td-sub" style="margin-top:0">${k.pkg}</span></td>
     <td>${k.code}</td>
+    <td>${decisionBadge(k.decision)}</td>
     <td><span class="td-sub" style="margin-top:0">${k.ts}</span></td>
     <td style="text-align:right"><button class="link-btn" onclick="viewPayload('${k.tid}','${k.pkg}',${k.code},'${k.decision}','${k.ts}')">View Payload</button></td>
   </tr>`).join("");
@@ -1152,7 +1212,6 @@ function screen7() {
     <div class="page-head">
       <div><h1>Monitoring & Logs</h1><p>Real-time feed of downloads, installs and failures.</p></div>
       <div class="actions">
-        <button class="btn btn-tertiary" onclick="exportLogsCSV()">Download CSV</button>
         <button class="btn btn-primary" id="s7PauseBtn" onclick="toggleLogFeed()">${Store.logFeedPaused?'Resume Feed':'Pause Feed'}</button>
       </div>
     </div>
@@ -1558,7 +1617,7 @@ Object.assign(window, {
   showScreen, openRegisterModal, openUploadModal, openEditApkModal, deprecateApk,
   submitRegisterApk, submitEditApk, exportApksCSV, filterApkTable, validateRegPkg,
   filterVersionTable, setActiveVersion, deprecateVersion, showReleaseNotes, showVersionNotes,
-  submitUploadVersion, simulateFileSelect, updateUploadBtnState,
+  submitUploadVersion, simulateFileSelect, updateUploadBtnState, recomputeUploadAutofill,
   filterTerminals, toggleTerminalExpand, forceSyncTerminal, forceSyncAll, exportTerminalsCSV,
   renderKETable, viewPayload, copyPayload, toggleLiveTail, toggleS5Filter,
   expandRollout, pauseRollout, resumeRollout, rollbackRollout,
@@ -1568,5 +1627,6 @@ Object.assign(window, {
   openEditBucket, submitEditBucket, openAssignTerminals, submitAssignTerminals,
   openImportAssignments, simulateImport, openMismatchReview,
   closeAllModals, openGlobalSearch, toast, confirm2,
+  openActiveVersionsBreakdown,
   Store, filterAssignList
 });
