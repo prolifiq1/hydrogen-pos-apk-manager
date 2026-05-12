@@ -949,6 +949,11 @@ pre.payload .n { color: #89b4fa; }
 .log-row.clickable { cursor: pointer; }
 .log-row.clickable:hover { background: var(--error-bg); }
 
+/* Generic clickable table row — used on Audit Trail tabs */
+tr.clickable-row { transition: background .12s ease; }
+tr.clickable-row:hover { background: var(--base-02); }
+tr.clickable-row:hover .link-btn { color: var(--primary-default); }
+
 /* Checkbox list in modals */
 .checkbox-list { max-height: 250px; overflow-y: auto; border: 1px solid var(--base-03); border-radius: var(--r-md); }
 .checkbox-list label {

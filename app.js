@@ -346,18 +346,37 @@ const paginationHTML = (total) => `
 function screen1() {
   const el = document.createElement("section");
   el.className = "screen active"; el.id = "s1";
-  // Audit-trail feed — sourced from logs + key exchanges + APK lifecycle events.
-  // Per meeting: include upgrade logs, key-exchange decisions w/ timestamps, app release status.
-  const feedItems = [
-    { col:"g", ch:"✓", t:'<b>UPGRADE</b> · Neo Core POS 4.2.1 installed on T-20014521', time:"2 min ago", screen:"s7", tag:"Install" },
-    { col:"r", ch:"✕", t:'<b>UPGRADE FAILED</b> · Osun IGR 1.2.3 on T-20022714 · checksum mismatch', time:"4 min ago", screen:"s7", tag:"Failure" },
-    { col:"p", ch:"⇋", t:'<b>KEY EXCHANGE</b> · T-20022714 → ForceUpdate (com.neo.osun.igr)', time:"5 min ago", screen:"s5", tag:"Handshake" },
-    { col:"b", ch:"↓", t:'<b>DOWNLOAD</b> · Ardova Fuel 3.1.0 fetched by 48 terminals', time:"8 min ago", screen:"s6", tag:"Download" },
-    { col:"y", ch:"!", t:'<b>OPTIONAL UPDATE</b> · Hypercity 2.0.0 pending user confirmation', time:"14 min ago", screen:"s6", tag:"Pending" },
-    { col:"g", ch:"⇪", t:'<b>RELEASE</b> · Version 4.2.1 promoted to Active', time:"22 min ago", screen:"s3", tag:"Release" },
-    { col:"p", ch:"⇋", t:'<b>KEY EXCHANGE</b> · T-20018834 → Allow (com.neo.core.pos v4.2.1)', time:"38 min ago", screen:"s5", tag:"Handshake" },
-    { col:"b", ch:"+", t:'<b>REGISTRY</b> · Firmware Companion registered (com.neo.fw.companion)', time:"1 hr ago", screen:"s2", tag:"Registry" },
-  ];
+  // Audit-trail feed — sourced directly from upgradeLogs + appReleases so it
+  // mirrors the Audit Trail page exactly. Each row deep-links into that page
+  // on the correct tab via openAuditDetail() / setAuditTab().
+  const upgradeFeed = Store.upgradeLogs.slice(0, 4).map(r => {
+    const statusMeta = {
+      completed:   { col:"g", ch:"✓", tag:"Upgrade Completed" },
+      upgrading:   { col:"y", ch:"⇪", tag:"Upgrading" },
+      downloaded:  { col:"g", ch:"↓", tag:"Download Completed" },
+      downloading: { col:"b", ch:"↓", tag:"Downloading" },
+      failed:      { col:"r", ch:"✕", tag:"Upgrade Failed" },
+    }[r.status] || { col:"b", ch:"·", tag:r.status };
+    return {
+      ...statusMeta,
+      t: `<b>UPDATE LOG</b> · ${esc(r.pkg)} v${esc(r.ver)} on ${esc(r.sn.slice(-7))}`,
+      time: r.time,
+      onClick: `openAuditDetail('log','${encodeURIComponent(r.sn)}','${encodeURIComponent(r.pkg)}','${encodeURIComponent(r.ver)}')`
+    };
+  });
+  const releaseFeed = Store.appReleases.slice(0, 4).map((r, idx) => ({
+    col: "p", ch: "⇪", tag: "App Release",
+    t: `<b>APP RELEASE</b> · ${esc(r.pkg)} v${esc(r.ver)} · ${esc(r.cat)}`,
+    time: r.released,
+    onClick: `openAuditDetail('release','${idx}')`
+  }));
+  // Interleave the two feeds so the dashboard mirrors mixed activity
+  const feedItems = [];
+  const maxLen = Math.max(upgradeFeed.length, releaseFeed.length);
+  for (let i = 0; i < maxLen; i++) {
+    if (upgradeFeed[i]) feedItems.push(upgradeFeed[i]);
+    if (releaseFeed[i]) feedItems.push(releaseFeed[i]);
+  }
   // Bar row variant: black = active terminals, grey = pending. Tooltip on hover.
   const apkBarRow = (name, version, active, pending) => {
     const total = active + pending;
@@ -422,7 +441,7 @@ function screen1() {
         <div class="card-head"><div><h3>Recent activity · Audit trail</h3><div class="sub">Upgrade logs, key-exchange decisions &amp; release events · click any row to drill in</div></div><button class="btn btn-sm btn-tertiary" onclick="showScreen('s9')">View full log →</button></div>
         <div class="card-body" style="padding-top:8px;">
           <div class="feed">
-            ${feedItems.map(f => `<div class="feed-item" style="cursor:pointer" onclick="showScreen('${f.screen}')"><div class="feed-icon ${f.col}">${f.ch}</div><div class="feed-text"><div class="t">${f.t}</div><div class="time">${f.time}${f.tag?` · <span style="color:var(--text-03);font-weight:500;">${f.tag}</span>`:''}</div></div></div>`).join("")}
+            ${feedItems.map(f => `<div class="feed-item" style="cursor:pointer" onclick="${f.onClick}"><div class="feed-icon ${f.col}">${f.ch}</div><div class="feed-text"><div class="t">${f.t}</div><div class="time">${f.time}${f.tag?` · <span style="color:var(--text-03);font-weight:500;">${f.tag}</span>`:''}</div></div></div>`).join("")}
           </div>
         </div>
       </div>
@@ -1501,18 +1520,20 @@ function renderUpgradeLogsTab() {
           <th>Package</th>
           <th>Version</th>
           <th>Update Time</th>
-          <th style="text-align:right;">Action</th>
+          <th>Action</th>
+          <th style="text-align:right;width:80px;">Details</th>
         </tr></thead>
         <tbody>
           ${rows.length===0
-            ? `<tr><td colspan="6" style="text-align:center;padding:48px 0;color:var(--text-03);"><div style="font-size:14px;font-weight:500;color:var(--text-02);margin-bottom:4px;">No upgrade events match your filters</div><div style="font-size:12px;">Try clearing the status filter or search term.</div></td></tr>`
-            : rows.map((r,i) => `<tr>
+            ? `<tr><td colspan="7" style="text-align:center;padding:48px 0;color:var(--text-03);"><div style="font-size:14px;font-weight:500;color:var(--text-02);margin-bottom:4px;">No upgrade events match your filters</div><div style="font-size:12px;">Try clearing the status filter or search term.</div></td></tr>`
+            : rows.map((r,i) => `<tr class="clickable-row" style="cursor:pointer;" onclick="openUpgradeLogDetail('${esc(r.sn)}','${esc(r.pkg)}','${esc(r.ver)}')">
                 <td><span class="td-sub" style="margin-top:0;font-variant-numeric:tabular-nums;">${i+1}</span></td>
                 <td><span class="td-main" style="font-family:ui-monospace,monospace;font-size:12px;">${esc(r.sn)}</span></td>
                 <td><span class="td-sub" style="margin-top:0;font-family:ui-monospace,monospace;">${esc(r.pkg)}</span></td>
                 <td><span class="td-main">${esc(r.ver)}</span></td>
                 <td><span class="td-sub" style="margin-top:0;">${esc(r.time)}</span></td>
-                <td style="text-align:right;">${upgradeStatusBadge(r.status)}</td>
+                <td>${upgradeStatusBadge(r.status)}</td>
+                <td style="text-align:right;"><button class="link-btn" onclick="event.stopPropagation();openUpgradeLogDetail('${esc(r.sn)}','${esc(r.pkg)}','${esc(r.ver)}')">View →</button></td>
               </tr>`).join("")}
         </tbody>
       </table>
@@ -1579,12 +1600,15 @@ function renderReleasesTab() {
           <th style="text-align:center;">Kiosk</th>
           <th style="text-align:center;">Silent</th>
           <th>Download Network</th>
+          <th style="text-align:right;width:80px;">Details</th>
         </tr></thead>
         <tbody>
           ${rows.length===0
-            ? `<tr><td colspan="12" style="text-align:center;padding:48px 0;color:var(--text-03);"><div style="font-size:14px;font-weight:500;color:var(--text-02);margin-bottom:4px;">No release authorisations match your filters</div><div style="font-size:12px;">Try a different category or search term.</div></td></tr>`
-            : rows.map((r,i) => `<tr>
-                <td><input type="checkbox" class="audRelRow" onchange="audRelRowChange()" /></td>
+            ? `<tr><td colspan="13" style="text-align:center;padding:48px 0;color:var(--text-03);"><div style="font-size:14px;font-weight:500;color:var(--text-02);margin-bottom:4px;">No release authorisations match your filters</div><div style="font-size:12px;">Try a different category or search term.</div></td></tr>`
+            : rows.map((r,i) => {
+                const origIdx = Store.appReleases.indexOf(r);
+                return `<tr class="clickable-row" style="cursor:pointer;" onclick="openReleaseDetail(${origIdx})">
+                <td onclick="event.stopPropagation();"><input type="checkbox" class="audRelRow" onchange="audRelRowChange()" /></td>
                 <td><span class="td-sub" style="margin-top:0;font-family:ui-monospace,monospace;">${esc(r.pkg)}</span></td>
                 <td><span class="td-main">${esc(r.ver)}</span></td>
                 <td><span class="td-sub" style="margin-top:0;">${esc(r.released)}</span></td>
@@ -1596,7 +1620,9 @@ function renderReleasesTab() {
                 <td style="text-align:center;">${yn(r.kiosk)}</td>
                 <td style="text-align:center;">${yn(r.silent)}</td>
                 <td><span class="td-sub" style="margin-top:0;">${esc(r.network)}</span></td>
-              </tr>`).join("")}
+                <td style="text-align:right;"><button class="link-btn" onclick="event.stopPropagation();openReleaseDetail(${origIdx})">View →</button></td>
+              </tr>`;
+              }).join("")}
         </tbody>
       </table>
     </div>`;
@@ -1610,6 +1636,157 @@ function audRelRowChange() {
   const btn = document.getElementById("audRelDelete");
   if (btn) btn.disabled = !any;
 }
+// Deep-link from Dashboard feed → Audit Trail with the right tab open and the
+// detail modal already showing for that specific row.
+function openAuditDetail(kind, ...args) {
+  Store.auditTab = kind === "release" ? "releases" : "logs";
+  showScreen("s9");
+  // Defer until the screen has rendered
+  setTimeout(() => {
+    if (kind === "log") {
+      const [sn, pkg, ver] = args.map(decodeURIComponent);
+      openUpgradeLogDetail(sn, pkg, ver);
+    } else {
+      const idx = parseInt(args[0], 10);
+      openReleaseDetail(idx);
+    }
+  }, 80);
+}
+
+// Detail modal: full lifecycle timeline for one terminal+package+version combo
+function openUpgradeLogDetail(sn, pkg, ver) {
+  const events = Store.upgradeLogs
+    .filter(r => r.sn === sn && r.pkg === pkg && r.ver === ver)
+    .slice()
+    .sort((a,b) => a.time < b.time ? -1 : 1); // ascending so the timeline reads top-to-bottom
+  if (events.length === 0) {
+    toast("No matching upgrade events", "warn");
+    return;
+  }
+  const latest = events[events.length-1];
+  const stepLabel = {
+    downloading: "Started download",
+    downloaded:  "Download completed",
+    upgrading:   "Installing on terminal",
+    completed:   "Upgrade completed",
+    failed:      "Upgrade failed"
+  };
+  // Map status → fixed icons/colours for the timeline rail
+  const stepStyle = {
+    downloading: { bg:"#dff2f7", color:"#0c5c75", icon:"↓" },
+    downloaded:  { bg:"#e5f5ec", color:"#04663f", icon:"✓" },
+    upgrading:   { bg:"#fff8e1", color:"#7a5a00", icon:"⇪" },
+    completed:   { bg:"#e5f5ec", color:"#04663f", icon:"✓" },
+    failed:      { bg:"var(--error-bg)", color:"#b5151a", icon:"✕" }
+  };
+  // Find related metadata
+  const apk = Store.apks.find(a => a.pkg === pkg);
+  const version = Store.versions.find(v => v.apkId === apk?.id && v.name === ver);
+  const terminal = Store.terminals.find(t => t.sn === sn) || null;
+
+  const body = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
+      <div style="padding:14px;background:var(--base-02);border-radius:var(--r-md);">
+        <div style="font-size:11px;color:var(--text-03);font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Terminal</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text-01);margin-top:4px;font-family:ui-monospace,monospace;">${esc(sn)}</div>
+        <div style="font-size:12px;color:var(--text-03);margin-top:2px;">${terminal ? `${esc(terminal.tid)} · ${esc(terminal.bucket)}` : 'Unmatched in profile registry'}</div>
+      </div>
+      <div style="padding:14px;background:var(--base-02);border-radius:var(--r-md);">
+        <div style="font-size:11px;color:var(--text-03);font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Package · Version</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text-01);margin-top:4px;font-family:ui-monospace,monospace;">${esc(pkg)}</div>
+        <div style="font-size:12px;color:var(--text-03);margin-top:2px;">v${esc(ver)} ${apk?`· ${esc(apk.name)} · ${esc(apk.cat)}`:''}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text-03);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">Lifecycle Timeline</div>
+    <div style="position:relative;padding-left:32px;">
+      <div style="position:absolute;left:11px;top:8px;bottom:8px;width:2px;background:var(--base-03);"></div>
+      ${events.map(e => {
+        const s = stepStyle[e.status] || { bg:"var(--base-03)", color:"var(--text-02)", icon:"·" };
+        return `<div style="position:relative;padding:10px 0;">
+          <div style="position:absolute;left:-24px;top:8px;width:24px;height:24px;border-radius:50%;background:${s.bg};color:${s.color};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;border:2px solid white;">${s.icon}</div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--text-01);">${stepLabel[e.status] || esc(e.status)}</div>
+              <div style="font-size:11px;color:var(--text-03);margin-top:2px;">${esc(e.time)}</div>
+            </div>
+            ${upgradeStatusBadge(e.status)}
+          </div>
+        </div>`;
+      }).join("")}
+    </div>
+    ${version ? `<div style="margin-top:18px;padding:14px;background:var(--base-02);border-radius:var(--r-md);">
+      <div style="font-size:11px;color:var(--text-03);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Release Artefact</div>
+      <div style="display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;font-size:12px;">
+        <div style="color:var(--text-03);">Version Code</div><div style="color:var(--text-01);font-family:ui-monospace,monospace;">${version.code}</div>
+        <div style="color:var(--text-03);">Min Supported</div><div style="color:var(--text-01);font-family:ui-monospace,monospace;">${esc(version.min)}</div>
+        <div style="color:var(--text-03);">File Size</div><div style="color:var(--text-01);">${esc(version.size)}</div>
+        <div style="color:var(--text-03);">Label</div><div style="color:var(--text-01);">${version.bucket ? esc(version.bucket) : 'Main (fleet-wide)'}</div>
+        ${version.sha256 ? `<div style="color:var(--text-03);">SHA-256</div><div style="color:var(--text-01);font-family:ui-monospace,monospace;word-break:break-all;font-size:11px;">${esc(version.sha256.slice(0,32))}…${esc(version.sha256.slice(-8))}</div>`:''}
+        ${version.downloadUrl ? `<div style="color:var(--text-03);">Download URL</div><div style="color:var(--text-01);font-family:ui-monospace,monospace;font-size:11px;word-break:break-all;">${esc(version.downloadUrl)}</div>`:''}
+      </div>
+    </div>`:''}
+  `;
+  const foot = `<button class="btn btn-tertiary" onclick="closeAllModals()">Close</button>${apk ? `<button class="btn btn-primary" onclick="Store.selectedApkId='${apk.id}';closeAllModals();showScreen('s3');">View Version on APK</button>`:''}`;
+  openModal(`<h2>Upgrade Event Detail</h2><p>Lifecycle of ${esc(pkg)} v${esc(ver)} on terminal ${esc(sn)} — current state <b>${esc(stepLabel[latest.status]||latest.status)}</b></p>`, body, foot);
+}
+
+// Detail modal: full record for one App Release authorisation
+function openReleaseDetail(idx) {
+  const r = Store.appReleases[idx];
+  if (!r) { toast("Release record not found", "warn"); return; }
+  const apk = Store.apks.find(a => a.pkg === r.pkg);
+  const terminal = Store.terminals.find(t => t.sn === r.sn);
+  const yn = v => v
+    ? '<span class="badge success" style="min-width:46px;justify-content:center;">Yes</span>'
+    : '<span class="badge" style="background:var(--base-03);color:var(--text-02);min-width:46px;justify-content:center;">No</span>';
+  const body = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
+      <div style="padding:14px;background:var(--base-02);border-radius:var(--r-md);">
+        <div style="font-size:11px;color:var(--text-03);font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Package · Version</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text-01);margin-top:4px;font-family:ui-monospace,monospace;">${esc(r.pkg)}</div>
+        <div style="font-size:12px;color:var(--text-03);margin-top:2px;">v${esc(r.ver)} ${apk?`· ${esc(apk.name)}`:''}</div>
+      </div>
+      <div style="padding:14px;background:var(--base-02);border-radius:var(--r-md);">
+        <div style="font-size:11px;color:var(--text-03);font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Target Terminal</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text-01);margin-top:4px;font-family:ui-monospace,monospace;">${esc(r.sn)}</div>
+        <div style="font-size:12px;color:var(--text-03);margin-top:2px;">${terminal ? `${esc(terminal.tid)} · ${esc(terminal.bucket)}` : 'Unmatched in profile registry'}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text-03);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">Authorisation</div>
+    <div style="display:grid;grid-template-columns:max-content 1fr;gap:8px 16px;font-size:13px;padding:14px;background:var(--base-02);border-radius:var(--r-md);">
+      <div style="color:var(--text-03);">Category</div><div style="color:var(--text-01);"><span class="badge plain">${esc(r.cat)}</span></div>
+      <div style="color:var(--text-03);">Release Time</div><div style="color:var(--text-01);">${esc(r.released)}</div>
+      <div style="color:var(--text-03);">Allow Upgrade Window</div><div style="color:var(--text-01);">${esc(r.allow)}</div>
+      <div style="color:var(--text-03);">Download Network</div><div style="color:var(--text-01);">${esc(r.network)}</div>
+    </div>
+    <div style="font-size:12px;color:var(--text-03);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin:18px 0 10px;">Installation Behaviour</div>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;">
+      <div style="padding:12px;background:var(--base-02);border-radius:var(--r-md);text-align:center;">
+        <div style="font-size:11px;color:var(--text-03);font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Auto Open</div>
+        ${yn(r.autoOpen)}
+        <div style="font-size:10px;color:var(--text-03);margin-top:6px;line-height:1.4;">Launch app immediately after install</div>
+      </div>
+      <div style="padding:12px;background:var(--base-02);border-radius:var(--r-md);text-align:center;">
+        <div style="font-size:11px;color:var(--text-03);font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Launcher</div>
+        ${yn(r.launcher)}
+        <div style="font-size:10px;color:var(--text-03);margin-top:6px;line-height:1.4;">Set as terminal launcher</div>
+      </div>
+      <div style="padding:12px;background:var(--base-02);border-radius:var(--r-md);text-align:center;">
+        <div style="font-size:11px;color:var(--text-03);font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Kiosk Mode</div>
+        ${yn(r.kiosk)}
+        <div style="font-size:10px;color:var(--text-03);margin-top:6px;line-height:1.4;">Lock terminal to this app</div>
+      </div>
+      <div style="padding:12px;background:var(--base-02);border-radius:var(--r-md);text-align:center;">
+        <div style="font-size:11px;color:var(--text-03);font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Silent Install</div>
+        ${yn(r.silent)}
+        <div style="font-size:10px;color:var(--text-03);margin-top:6px;line-height:1.4;">Install without user prompt</div>
+      </div>
+    </div>
+  `;
+  const foot = `<button class="btn btn-tertiary" onclick="closeAllModals()">Close</button>${apk?`<button class="btn btn-primary" onclick="Store.selectedApkId='${apk.id}';closeAllModals();showScreen('s3');">View Versions</button>`:''}`;
+  openModal(`<h2>App Release Detail</h2><p>Release authorisation for ${esc(r.pkg)} v${esc(r.ver)} on terminal ${esc(r.sn)}</p>`, body, foot);
+}
+
 function bulkDeleteReleases() {
   const n = document.querySelectorAll(".audRelRow:checked").length;
   if (!n) return;
@@ -1877,5 +2054,6 @@ Object.assign(window, {
   closeAllModals, openGlobalSearch, toast, confirm2,
   openActiveVersionsBreakdown,
   setAuditTab, renderAuditTab, audRelToggleAll, audRelRowChange, bulkDeleteReleases,
+  openAuditDetail, openUpgradeLogDetail, openReleaseDetail,
   Store, filterAssignList
 });
