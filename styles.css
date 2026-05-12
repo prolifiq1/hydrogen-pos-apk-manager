@@ -961,6 +961,64 @@ pre.payload .n { color: #89b4fa; }
 .checkbox-list input[type="checkbox"] { accent-color: var(--base-09); }
 
 /* ============================================================
+   Tabbar — Audit Trail and similar tabbed pages
+   ============================================================ */
+.tabbar {
+  display: flex;
+  gap: 4px;
+  background: var(--base-02);
+  border: 1px solid var(--base-03);
+  border-radius: var(--r-md);
+  padding: 4px;
+  margin-bottom: 18px;
+  width: fit-content;
+}
+.tabbar .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: calc(var(--r-md) - 4px);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-02);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.tabbar .tab:hover {
+  background: rgba(255,255,255,0.5);
+  color: var(--text-01);
+}
+.tabbar .tab.active {
+  background: #ffffff;
+  color: var(--text-01);
+  border-color: var(--base-03);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  font-weight: 600;
+}
+.tabbar .tab .tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: var(--base-03);
+  color: var(--text-02);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.tabbar .tab.active .tab-count {
+  background: var(--primary-default);
+  color: var(--text-01);
+}
+
+/* ============================================================
    Responsive (tablet)
    ============================================================ */
 @media (max-width: 1100px) {

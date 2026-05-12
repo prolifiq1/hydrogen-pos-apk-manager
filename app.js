@@ -103,6 +103,51 @@ const Store = {
   apkRemovals: [
     { id:"RM-0001", terminalId:"T-20022891", apkVersionId:"V-1.2.0", removedAt:"2026-04-09T14:33:00Z", reason:"Force update — version below minSupported" },
   ],
+  // App Upgrade Logs — per-terminal lifecycle events for a release (Downloading → Download Completed → Upgrading → Upgrade completed)
+  upgradeLogs: [
+    { sn:"C47P008D02812239", pkg:"com.neo.greatbrand",        ver:"2.3.0", time:"5/8/2026 12:41:15", status:"completed"  },
+    { sn:"C47P008D02812239", pkg:"com.neo.greatbrand",        ver:"2.3.0", time:"5/8/2026 12:41:11", status:"upgrading"  },
+    { sn:"C47P008D02812239", pkg:"com.neo.greatbrand",        ver:"2.3.0", time:"5/8/2026 12:41:10", status:"downloaded" },
+    { sn:"C47P008D02812239", pkg:"com.neo.greatbrand",        ver:"2.3.0", time:"5/8/2026 12:40:56", status:"downloading"},
+    { sn:"C47P008D02813369", pkg:"com.neo.peripheral",        ver:"1.0.2", time:"5/8/2026 12:05:08", status:"completed"  },
+    { sn:"C47P008D02813369", pkg:"com.neo.peripheral",        ver:"1.0.2", time:"5/8/2026 12:05:04", status:"upgrading"  },
+    { sn:"C47P008D02813369", pkg:"com.neo.peripheral",        ver:"1.0.2", time:"5/8/2026 12:05:03", status:"downloaded" },
+    { sn:"C47P008D02813369", pkg:"com.neo.peripheral",        ver:"1.0.2", time:"5/8/2026 12:04:46", status:"downloading"},
+    { sn:"C47P008D02813367", pkg:"com.neo.peripheral",        ver:"1.0.2", time:"5/8/2026 06:33:49", status:"completed"  },
+    { sn:"C47P008D02813367", pkg:"com.neo.peripheral",        ver:"1.0.2", time:"5/8/2026 06:33:45", status:"upgrading"  },
+    { sn:"C47P008D02814502", pkg:"com.neo.core.pos",          ver:"4.2.1", time:"5/8/2026 11:18:22", status:"completed"  },
+    { sn:"C47P008D02814502", pkg:"com.neo.core.pos",          ver:"4.2.1", time:"5/8/2026 11:18:18", status:"upgrading"  },
+    { sn:"C47P008D02814502", pkg:"com.neo.core.pos",          ver:"4.2.1", time:"5/8/2026 11:18:14", status:"downloaded" },
+    { sn:"C47P008D02814502", pkg:"com.neo.core.pos",          ver:"4.2.1", time:"5/8/2026 11:17:48", status:"downloading"},
+    { sn:"C47P008D02817781", pkg:"com.neo.ardova.fuel",       ver:"3.1.0", time:"5/8/2026 10:42:09", status:"completed"  },
+    { sn:"C47P008D02817781", pkg:"com.neo.ardova.fuel",       ver:"3.1.0", time:"5/8/2026 10:42:05", status:"upgrading"  },
+    { sn:"C47P008D02817781", pkg:"com.neo.ardova.fuel",       ver:"3.1.0", time:"5/8/2026 10:42:01", status:"downloaded" },
+    { sn:"C47P008D02817781", pkg:"com.neo.ardova.fuel",       ver:"3.1.0", time:"5/8/2026 10:41:36", status:"downloading"},
+    { sn:"C47P008D02818226", pkg:"com.neo.osun.igr",          ver:"1.3.0", time:"5/8/2026 09:55:32", status:"failed"     },
+    { sn:"C47P008D02818226", pkg:"com.neo.osun.igr",          ver:"1.3.0", time:"5/8/2026 09:55:28", status:"upgrading"  },
+    { sn:"C47P008D02818226", pkg:"com.neo.osun.igr",          ver:"1.3.0", time:"5/8/2026 09:55:24", status:"downloaded" },
+    { sn:"C47P008D02818226", pkg:"com.neo.osun.igr",          ver:"1.3.0", time:"5/8/2026 09:54:51", status:"downloading"},
+    { sn:"C47P008D02820114", pkg:"com.neo.hypercity.kiosk",   ver:"2.0.0", time:"5/8/2026 09:21:18", status:"completed"  },
+    { sn:"C47P008D02820114", pkg:"com.neo.hypercity.kiosk",   ver:"2.0.0", time:"5/8/2026 09:21:14", status:"upgrading"  },
+    { sn:"C47P008D02820114", pkg:"com.neo.hypercity.kiosk",   ver:"2.0.0", time:"5/8/2026 09:21:10", status:"downloaded" },
+  ],
+  // App Releases — per-terminal release authorization records, mirroring the spec screenshot
+  appReleases: [
+    { pkg:"com.neo.greatbrand",      ver:"2.2.9", released:"5/8/2026 12:14:17", allow:"No Limit", sn:"C47P008D02818869", cat:"Greatbrand Retail", autoOpen:false, launcher:false, kiosk:false, silent:true, network:"No Limit" },
+    { pkg:"com.neo.greatbrand",      ver:"2.2.9", released:"5/8/2026 12:14:17", allow:"No Limit", sn:"C47P008D02812241", cat:"Greatbrand Retail", autoOpen:false, launcher:false, kiosk:false, silent:true, network:"No Limit" },
+    { pkg:"com.neo.greatbrand",      ver:"2.2.9", released:"5/8/2026 12:14:17", allow:"No Limit", sn:"C47P008D02815033", cat:"Greatbrand Retail", autoOpen:false, launcher:false, kiosk:false, silent:true, network:"No Limit" },
+    { pkg:"com.neo.greatbrand",      ver:"2.2.9", released:"5/8/2026 12:13:35", allow:"No Limit", sn:"C47P008D02810350", cat:"Greatbrand Retail", autoOpen:false, launcher:false, kiosk:false, silent:true, network:"No Limit" },
+    { pkg:"com.neo.greatbrand",      ver:"2.2.9", released:"5/8/2026 12:13:35", allow:"No Limit", sn:"C47P008D02816031", cat:"Greatbrand Retail", autoOpen:false, launcher:false, kiosk:false, silent:true, network:"No Limit" },
+    { pkg:"com.neo.greatbrand",      ver:"2.2.9", released:"5/8/2026 12:13:35", allow:"No Limit", sn:"C47P008D02813675", cat:"Greatbrand Retail", autoOpen:false, launcher:false, kiosk:false, silent:true, network:"No Limit" },
+    { pkg:"com.neo.greatbrand",      ver:"2.2.9", released:"5/8/2026 12:13:35", allow:"No Limit", sn:"C47P008D02813533", cat:"Greatbrand Retail", autoOpen:false, launcher:false, kiosk:false, silent:true, network:"No Limit" },
+    { pkg:"com.neo.greatbrand",      ver:"2.2.9", released:"5/8/2026 12:13:35", allow:"No Limit", sn:"C47P008D02812257", cat:"Greatbrand Retail", autoOpen:false, launcher:false, kiosk:false, silent:true, network:"No Limit" },
+    { pkg:"com.neo.core.pos",        ver:"4.2.1", released:"5/7/2026 18:02:09", allow:"22:00 – 04:00", sn:"C47P008D02814502", cat:"Core POS",         autoOpen:false, launcher:true,  kiosk:false, silent:true, network:"Wi-Fi only" },
+    { pkg:"com.neo.core.pos",        ver:"4.2.1", released:"5/7/2026 18:02:09", allow:"22:00 – 04:00", sn:"C47P008D02814503", cat:"Core POS",         autoOpen:false, launcher:true,  kiosk:false, silent:true, network:"Wi-Fi only" },
+    { pkg:"com.neo.ardova.fuel",     ver:"3.1.0", released:"5/6/2026 09:14:00", allow:"No Limit", sn:"C47P008D02817781", cat:"Ardova Fuel",      autoOpen:true,  launcher:false, kiosk:true,  silent:true, network:"No Limit" },
+    { pkg:"com.neo.osun.igr",        ver:"1.3.0", released:"5/5/2026 16:45:31", allow:"No Limit", sn:"C47P008D02818226", cat:"Osun IGR",         autoOpen:false, launcher:false, kiosk:false, silent:true, network:"No Limit" },
+    { pkg:"com.neo.hypercity.kiosk", ver:"2.0.0", released:"5/4/2026 11:00:00", allow:"No Limit", sn:"C47P008D02820114", cat:"Hypercity Kiosk",  autoOpen:false, launcher:false, kiosk:true,  silent:true, network:"No Limit" },
+  ],
+  auditTab: "logs",
   reassignHistory: [
     { tid:"T-20018834", from:"Ardova-Prod",      to:"Merchant-General", when:"2026-04-09", reason:"Merchant re-onboarded to General product" },
     { tid:"T-20031154", from:"Greatbrand",        to:"Hypercity",        when:"2026-04-08", reason:"Terminal SN matched Hypercity deployment" },
@@ -147,6 +192,7 @@ const SCREEN_META = {
   s6: { title:"Distribution & Rollout",      sub:"Staged rollout controls" },
   s7: { title:"Monitoring & Logs",           sub:"Real-time download & install events" },
   s8: { title:"Terminal Profiling & Buckets", sub:"Group terminals into rollout buckets" },
+  s9: { title:"Audit Trail",                 sub:"App upgrade lifecycle events &amp; release authorisations" },
 };
 
 let currentScreen = "s1";
@@ -373,7 +419,7 @@ function screen1() {
         </div>
       </div>
       <div class="card">
-        <div class="card-head"><div><h3>Recent activity · Audit trail</h3><div class="sub">Upgrade logs, key-exchange decisions &amp; release events · click any row to drill in</div></div><button class="btn btn-sm btn-tertiary" onclick="showScreen('s7')">View full log</button></div>
+        <div class="card-head"><div><h3>Recent activity · Audit trail</h3><div class="sub">Upgrade logs, key-exchange decisions &amp; release events · click any row to drill in</div></div><button class="btn btn-sm btn-tertiary" onclick="showScreen('s9')">View full log →</button></div>
         <div class="card-body" style="padding-top:8px;">
           <div class="feed">
             ${feedItems.map(f => `<div class="feed-item" style="cursor:pointer" onclick="showScreen('${f.screen}')"><div class="feed-icon ${f.col}">${f.ch}</div><div class="feed-text"><div class="t">${f.t}</div><div class="time">${f.time}${f.tag?` · <span style="color:var(--text-03);font-weight:500;">${f.tag}</span>`:''}</div></div></div>`).join("")}
@@ -1372,6 +1418,208 @@ function screen8() {
     </div>`;
   return el;
 }
+// ==================== SCREEN 9: AUDIT TRAIL ====================
+// Two-tab page: App Upgrade Logs (lifecycle events per terminal) + App Releases (release authorisations).
+function screen9() {
+  const el = document.createElement("section");
+  el.className = "screen"; el.id = "s9";
+  const tab = Store.auditTab || "logs";
+  el.innerHTML = `
+    <div class="page-head">
+      <div>
+        <div style="font-size:13px;color:var(--text-03);">Dashboard / Audit Trail</div>
+        <h1 style="margin-top:4px;">Audit Trail</h1>
+        <p>End-to-end record of every app lifecycle event &amp; release authorisation issued by the Distribution Service.</p>
+      </div>
+    </div>
+    <div class="tabbar">
+      <button class="tab ${tab==='logs'?'active':''}" onclick="setAuditTab('logs')">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 4h8M4 7h8M4 10h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        App Upgrade Logs
+        <span class="tab-count">${Store.upgradeLogs.length}</span>
+      </button>
+      <button class="tab ${tab==='releases'?'active':''}" onclick="setAuditTab('releases')">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 4h10v8H3z" stroke="currentColor" stroke-width="1.4"/><path d="M3 6.5h10" stroke="currentColor" stroke-width="1.4"/></svg>
+        App Releases
+        <span class="tab-count">${Store.appReleases.length}</span>
+      </button>
+    </div>
+    <div id="auditTabBody"></div>`;
+  // defer body render
+  setTimeout(() => renderAuditTab(), 0);
+  return el;
+}
+function setAuditTab(t) {
+  Store.auditTab = t;
+  document.querySelectorAll(".tabbar .tab").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".tabbar .tab").forEach(b => {
+    if (b.textContent.toLowerCase().includes(t==='logs'?'upgrade':'releases')) b.classList.add("active");
+  });
+  renderAuditTab();
+}
+function renderAuditTab() {
+  const host = document.getElementById("auditTabBody");
+  if (!host) return;
+  host.innerHTML = Store.auditTab === "releases" ? renderReleasesTab() : renderUpgradeLogsTab();
+}
+function upgradeStatusBadge(s) {
+  if (s==="completed")   return '<span class="badge success">Upgrade Completed</span>';
+  if (s==="upgrading")   return '<span class="badge warning">Upgrading…</span>';
+  if (s==="downloaded")  return '<span class="badge success" style="background:#e5f5ec;color:#04663f;">Download Completed</span>';
+  if (s==="downloading") return '<span class="badge" style="background:#dff2f7;color:#0c5c75;">Downloading…</span>';
+  if (s==="failed")      return '<span class="badge error">Failed</span>';
+  return `<span class="badge neutral">${esc(s)}</span>`;
+}
+function renderUpgradeLogsTab() {
+  const q = (document.getElementById("audLogSearch")?.value || "").toLowerCase();
+  const sf = document.getElementById("audLogStatus")?.value || "";
+  const rows = Store.upgradeLogs.filter(r => {
+    if (sf && r.status !== sf) return false;
+    if (q && !r.sn.toLowerCase().includes(q) && !r.pkg.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  return `
+    <div class="table-wrap">
+      <div class="table-head">
+        <h3>App Upgrade Logs <span style="color:var(--text-03);font-weight:400;font-size:12px;">· ${rows.length} of ${Store.upgradeLogs.length} events</span></h3>
+        <div class="filters">
+          <select class="input" style="min-width:170px;" id="audLogStatus" onchange="renderAuditTab()">
+            <option value="">All statuses</option>
+            <option value="completed">Upgrade Completed</option>
+            <option value="upgrading">Upgrading</option>
+            <option value="downloaded">Download Completed</option>
+            <option value="downloading">Downloading</option>
+            <option value="failed">Failed</option>
+          </select>
+          <input class="input" placeholder="Search by Serial or Package…" style="min-width:260px;" id="audLogSearch" oninput="renderAuditTab()" value="${esc(q)}" />
+        </div>
+      </div>
+      <table>
+        <thead><tr>
+          <th style="width:48px;">#</th>
+          <th>Serial Number</th>
+          <th>Package</th>
+          <th>Version</th>
+          <th>Update Time</th>
+          <th style="text-align:right;">Action</th>
+        </tr></thead>
+        <tbody>
+          ${rows.length===0
+            ? `<tr><td colspan="6" style="text-align:center;padding:48px 0;color:var(--text-03);"><div style="font-size:14px;font-weight:500;color:var(--text-02);margin-bottom:4px;">No upgrade events match your filters</div><div style="font-size:12px;">Try clearing the status filter or search term.</div></td></tr>`
+            : rows.map((r,i) => `<tr>
+                <td><span class="td-sub" style="margin-top:0;font-variant-numeric:tabular-nums;">${i+1}</span></td>
+                <td><span class="td-main" style="font-family:ui-monospace,monospace;font-size:12px;">${esc(r.sn)}</span></td>
+                <td><span class="td-sub" style="margin-top:0;font-family:ui-monospace,monospace;">${esc(r.pkg)}</span></td>
+                <td><span class="td-main">${esc(r.ver)}</span></td>
+                <td><span class="td-sub" style="margin-top:0;">${esc(r.time)}</span></td>
+                <td style="text-align:right;">${upgradeStatusBadge(r.status)}</td>
+              </tr>`).join("")}
+        </tbody>
+      </table>
+      <div style="padding:12px 18px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--base-03);background:var(--base-02);">
+        <div style="font-size:12px;color:var(--text-03);">Showing ${rows.length} most-recent events · auto-updated by the Distribution Service</div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm btn-ghost" disabled>‹</button>
+          <button class="btn btn-sm btn-tertiary">1</button>
+          <button class="btn btn-sm btn-ghost">2</button>
+          <button class="btn btn-sm btn-ghost">3</button>
+          <button class="btn btn-sm btn-ghost">4</button>
+          <button class="btn btn-sm btn-ghost">5</button>
+          <button class="btn btn-sm btn-ghost">›</button>
+        </div>
+      </div>
+    </div>`;
+}
+function renderReleasesTab() {
+  const q = (document.getElementById("audRelSearch")?.value || "").toLowerCase();
+  const cf = document.getElementById("audRelCat")?.value || "";
+  const rows = Store.appReleases.filter(r => {
+    if (cf && r.cat !== cf) return false;
+    if (q && !r.sn.toLowerCase().includes(q) && !r.pkg.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const yn = v => v
+    ? '<span class="badge success" style="min-width:38px;justify-content:center;">Yes</span>'
+    : '<span class="badge" style="background:var(--base-03);color:var(--text-02);min-width:38px;justify-content:center;">No</span>';
+  const cats = [...new Set(Store.appReleases.map(r => r.cat))];
+  return `
+    <div class="alert" style="background:#fff8e1;border-left:3px solid #ba7517;margin-bottom:16px;">
+      <div class="icon" style="background:#ba7517;color:white;">!</div>
+      <div>
+        <div class="t" style="color:#633806;">App push and app uninstall are conflicting operations</div>
+        <div class="d">Confirm the operation you need right now. To push an app, the target terminal must have no uninstall record. To uninstall, the target must have no active release record.</div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <div class="table-head">
+        <h3>App Releases <span style="color:var(--text-03);font-weight:400;font-size:12px;">· ${rows.length} of ${Store.appReleases.length} authorisations</span></h3>
+        <div class="filters">
+          <select class="input" style="min-width:170px;" id="audRelCat" onchange="renderAuditTab()">
+            <option value="">All categories</option>
+            ${cats.map(c => `<option value="${esc(c)}" ${c===cf?'selected':''}>${esc(c)}</option>`).join("")}
+          </select>
+          <input class="input" placeholder="Search by Serial or Package…" style="min-width:260px;" id="audRelSearch" oninput="renderAuditTab()" value="${esc(q)}" />
+          <button class="btn btn-sm btn-ghost" style="color:var(--error-fill);" onclick="bulkDeleteReleases()" id="audRelDelete" disabled>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 4V2.5h4V4M5 4l.6 9.5h4.8L11 4M7 7v4M9 7v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            Delete
+          </button>
+        </div>
+      </div>
+      <table>
+        <thead><tr>
+          <th style="width:42px;"><input type="checkbox" id="audRelSelectAll" onchange="audRelToggleAll(this.checked)" /></th>
+          <th>Package</th>
+          <th>Version</th>
+          <th>Release Time</th>
+          <th>Allow Upgrade</th>
+          <th>Serial Number</th>
+          <th>Category</th>
+          <th style="text-align:center;">Auto Open</th>
+          <th style="text-align:center;">Launcher</th>
+          <th style="text-align:center;">Kiosk</th>
+          <th style="text-align:center;">Silent</th>
+          <th>Download Network</th>
+        </tr></thead>
+        <tbody>
+          ${rows.length===0
+            ? `<tr><td colspan="12" style="text-align:center;padding:48px 0;color:var(--text-03);"><div style="font-size:14px;font-weight:500;color:var(--text-02);margin-bottom:4px;">No release authorisations match your filters</div><div style="font-size:12px;">Try a different category or search term.</div></td></tr>`
+            : rows.map((r,i) => `<tr>
+                <td><input type="checkbox" class="audRelRow" onchange="audRelRowChange()" /></td>
+                <td><span class="td-sub" style="margin-top:0;font-family:ui-monospace,monospace;">${esc(r.pkg)}</span></td>
+                <td><span class="td-main">${esc(r.ver)}</span></td>
+                <td><span class="td-sub" style="margin-top:0;">${esc(r.released)}</span></td>
+                <td><span class="td-sub" style="margin-top:0;">${esc(r.allow)}</span></td>
+                <td><span class="td-main" style="font-family:ui-monospace,monospace;font-size:12px;">${esc(r.sn)}</span></td>
+                <td><span class="badge plain">${esc(r.cat)}</span></td>
+                <td style="text-align:center;">${yn(r.autoOpen)}</td>
+                <td style="text-align:center;">${yn(r.launcher)}</td>
+                <td style="text-align:center;">${yn(r.kiosk)}</td>
+                <td style="text-align:center;">${yn(r.silent)}</td>
+                <td><span class="td-sub" style="margin-top:0;">${esc(r.network)}</span></td>
+              </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+function audRelToggleAll(checked) {
+  document.querySelectorAll(".audRelRow").forEach(c => c.checked = checked);
+  audRelRowChange();
+}
+function audRelRowChange() {
+  const any = !!document.querySelector(".audRelRow:checked");
+  const btn = document.getElementById("audRelDelete");
+  if (btn) btn.disabled = !any;
+}
+function bulkDeleteReleases() {
+  const n = document.querySelectorAll(".audRelRow:checked").length;
+  if (!n) return;
+  confirm2("Delete Release Authorisations", `Delete <b>${n}</b> selected release record${n===1?'':'s'}? Terminals will not receive the associated APK until a new release is authorised.`, () => {
+    toast(`${n} release record${n===1?'':'s'} deleted from audit trail`, "warn");
+    // (Stub) — in production this calls the audit API
+    renderAuditTab();
+  }, true);
+}
+
 function openCreateBucket() {
   const body = `
     <div class="input-group"><label>Bucket Name</label><input class="input" id="cbName" placeholder="e.g. Lagos-Prod" /></div>
@@ -1513,7 +1761,7 @@ function showScreen(id) {
   currentScreen = id;
   const content = document.getElementById("content");
   content.innerHTML = "";
-  const renderers = { s1:screen1, s2:screen2, s3:screen3, s4:screen4, s5:screen5, s6:screen6, s7:screen7, s8:screen8 };
+  const renderers = { s1:screen1, s2:screen2, s3:screen3, s4:screen4, s5:screen5, s6:screen6, s7:screen7, s8:screen8, s9:screen9 };
   const el = renderers[id]();
   el.classList.add("active");
   content.append(el);
@@ -1628,5 +1876,6 @@ Object.assign(window, {
   openImportAssignments, simulateImport, openMismatchReview,
   closeAllModals, openGlobalSearch, toast, confirm2,
   openActiveVersionsBreakdown,
+  setAuditTab, renderAuditTab, audRelToggleAll, audRelRowChange, bulkDeleteReleases,
   Store, filterAssignList
 });
